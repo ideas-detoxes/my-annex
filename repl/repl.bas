@@ -102,7 +102,7 @@ list:
     l$=file.read$(param$)
     lc=word.count(l$, chr$(13))
     for i=1 to lc
-      print word$(l$, i, chr$(13))
+      print replace$(word$(l$, i, chr$(13)), chr$(10), chr$(10)+chr$(13))
     next
   endif
 return
@@ -110,3 +110,4 @@ return
 reset:
   option.wdt 1
 return
+'§§

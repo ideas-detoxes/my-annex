@@ -22,12 +22,12 @@ while 1
     do while s$=""
       s$=serial.input$
     loop
-    t$=t$+s$
+    t$=t$+replace$(s$, chr$(13), chr$(10))
     if instr(s$, "§") <> 0 then
-      tt$=replace$(t$, chr$(13), "")
       print "saving to: ";filename$
       x=file.delete(filename$)
       file.save filename$, t$
       print bas.load "/repl/repl.bas"
     endif
 wend
+'§§
