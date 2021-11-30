@@ -27,7 +27,8 @@ onEspNowMsg message
 OnHtmlReload printmenu
 
 espnow.begin
-WIFI.APMODE "ESP="+myself$, "abrakadabra"
+'WIFI.APMODE "ESP="+myself$, "abrakadabra"
+WIFI.APMODE "MESH", "abrakadabralksd89usadn,msc8u9usd"
 
 
 gosub printmenu 
@@ -164,7 +165,7 @@ sub makepacket(payload$, dst$)
 end sub
 
 sub processpacket(msg$, from$)
-  local msgid$, src$, dst$, payload$, uniq$
+  local msgid$, src$, dst$, payload$, uniq$, i, tmp
 '  printlog "processpacket M:"+msg$+" F:"+from$
   printpacket "processpacket", msg$, from$
   if word.count(msg$, "|") <> 4 then 
@@ -183,6 +184,10 @@ sub processpacket(msg$, from$)
   addtostr from$, peers$, 1000, " "
   addtostr src$, nodes$, 1000, " "
   if dst$<>myself$ then 
+    '  not only for me so, need to forward
+    tmp=millis mod 30
+    for i=1 to tmp
+    next i
     forward msg$, from$
   end if
   if (instr(groups$, dst$) <> 0) or (dst$=myself$) then 
