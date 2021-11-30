@@ -1,38 +1,45 @@
 msg$ = ""
 from$ = ""
-peers$ = ""
+nodes$=""
 msgid=millis mod 1000
-shortmac$=replace$(mac$, ":", "")
-cachemax=100*16  ' header len=16, max entry count=100
+cachemax=3000
 cache$=""
-iam$=word$(WORD$(IP$,1),4,".")
-iam$="B6E62D13F307"
+iam$="node_"+word$(WORD$(IP$,1),4,".")
 groups$="any group1"
 menukey$=""
 menu$=""
 menu$=menu$+""+"?|Help|help" ' keycode(s)|menutext|label
-menu$=menu$+"@"+"1-9|Send to peer [1-9]|sendtopeerx"
-menu$=menu$+"@"+"p|Print peers|printpeers"
-menu$=menu$+"@"+"s|Scanning|doscan"
-menu$=menu$+"@"+"b|Send broadcast|sendbroadcast"
+menu$=menu$+"@"+"1|Send to node 1|sendtonodex"
+menu$=menu$+"@"+"2|Send to node 2|sendtonodex"
+menu$=menu$+"@"+"3|Send to node 3|sendtonodex"
+menu$=menu$+"@"+"4|Send to node 4|sendtonodex"
+menu$=menu$+"@"+"5|Send to node 5|sendtonodex"
+menu$=menu$+"@"+"6|Send to node 6|sendtonodex"
+menu$=menu$+"@"+"a|Send to group Any|sendtogroupany"
+menu$=menu$+"@"+"n|Print peer nodes|printnodes"
+'menu$=menu$+"@"+"p|Print peer MACs|printpeers"
+'menu$=menu$+"@"+"s|Scanning|doscan"
+'menu$=menu$+"@"+"b|Send broadcast|sendbroadcast"
 menu$=menu$+"@"+"q|Quit|quit"
-'menu$=menu$+"@"
-help:
 
+
+'onError goto lblerror
 onEspNowError status
 onEspNowMsg message 
+OnHtmlReload printmenu
 
 espnow.begin
-WIFI.APMODE "ESP=", "abrakadabra"
+espnow.add_peer("ff:ff:ff:ff:ff:ff")
+WIFI.APMODE "ESP="+iam$, "abrakadabra"
 
 
-doScan
-printmenu menu$, menukey$
+gosub printmenu 
 print menukey$
 
 do while 1
   if msg$ <> "" then
-    print "packet reveived: ";msg$;" from: ";from$
+    print "packet received: ";msg$;" from: ";from$
+    html "<br>packet received: "+msg$+" from: "+from$
     processpacket msg$, from$
     msg$= ""
     from$=""
@@ -40,17 +47,20 @@ do while 1
   c$=serial.chr$
   if c$<>"" then
     if c$=" " then
-      printmenu menu$, menukey$
+      gosub printmenu 
     endif
     if instr(menukey$, c$) <> 0 then
-      processmenu c$
+      gosub processmenu 
     endif
   endif
 loop
 
 end
 
-sub processmenu(c$)
+processmenu:
+  if c$="" then
+   c$=left$(HtmlEventButton$,1)
+  endif
   itemcnt=word.count(menu$)
   for i=1 to itemcnt
     item$=word$(menu$, i, "@")
@@ -60,133 +70,154 @@ sub processmenu(c$)
       c$=""
     endif
   next
-end sub
+return
 
-sub printmenu(menu$, menukey$)
+printmenu:
   menukey$=""
-  itemcnt=word.count(menu$)
+  cls
+  h$="<h1>"+iam$+"</h1><br><hr><br>"
+  itemcnt=word.count(menu$, "@")
   for i=1 to itemcnt
     item$=word$(menu$, i, "@")
     print word$(item$, 1, "|")," - ";word$(item$,2,"|")
+    h$=h$+ "<br>"
+    h$=h$+ button$(word$(item$, 1, "|") + "---" + word$(item$,2,"|"), processmenu)
     menukey$=menukey$+word$(item$, 1, "|")
   next
-end sub
+  html h$
+return
 
-sendtopeerx:
+help:
+  return
+
+sendtonodex:
 '  print "Send to peer X"
+  html "<br>send to peer:" + c$
   peer=asc(c$) - asc("0")
   p$="Hello from "+iam$
-  makepacket p$, word$(peers$, peer)
+  makepacket p$, word$(nodes$, peer)
   print "Sending packet: ";p$
+  html "<br>Sending packet: " + p$
   espnow.write(p$)
+  uniq$=word$(p$, 1, "|")+word$(p$, 2, "|")
+  cache$=left$(uniq$+cache$, cachemax)
+  return
+sendtogroupany:
+  html "<br>send to all peers"
+  p$="Hello from "+iam$
+  makepacket p$, "any"
+  print "Sending packet: ";p$
+  html "<br>Sending packet: " + p$
+  espnow.write(p$)
+  uniq$=word$(p$, 1, "|")+word$(p$, 2, "|")
+  cache$=left$(uniq$+cache$, cachemax)
   return
 printpeers:
-  print "Current peers:"
+  print "Current MACs of peers:"
+  html "<br>Current MACs of peers:<br>"
   for i=1 to word.count(peers$)
     print i, word$(peers$, i)
+    html str$(i) + "   " +  word$(peers$, i) + "<br>"
+  next i
+  return
+printnodes:
+  print "Current peer nodes:"
+  html "<br>Current peer nodes:<br>"
+  for i=1 to word.count(nodes$)
+    print i, word$(nodes$, i)
+    html str$(i) + "   " +  word$(nodes$, i) + "<br>"
   next i
   return
 doscan:
   print "Scan start ...  ";
+  html "<br>Scan start ...  ";
   msg$ = ""
   from$ = ""
   peers$ = ""
   doScan
   print "Scan done."
-  return
-sendbroadcast:
-  print "Send BroadCast"
+  html "Scan done.<br>"
   return
 quit:
   print "Quit"
+  print bas.load "/repl/repl.bas"
   return
 
 
 
 sub processpacket(p$, from$)
-wlog "pp:", p$
-wlog "pp: ", from$
-  shortfrom$=ucase$(replace$(from$, ":", ""))
-  uniq$=left$(p$, 16)
-  if instr(cache$, uniq$) then
-    print "exist in cache"
+  if from$="" then
+    trace "from$=''"
     exit sub
   endif
-  if instr(peers$, shortfrom$) = 0 then
-    if peers$="" then
-      peers$ = shortfrom$
+  uniq$=word$(p$, 1, "|")+word$(p$, 2, "|")
+  if uniq$="" then
+    trace "uniq=''"
+    exit sub
+  endif
+  src$=word$(p$, 2, "|")
+  dst$=word$(p$, 3, "|")
+  print "src: " + src$
+  html "<br>src: " + src$
+  print "dst: " + dst$
+  html "<br>dst: " + dst$
+  ' add src to knonw nodes
+  wlog "_"+nodes$+"_", "-"+src$+"-"
+  if instr(nodes$, src$) = 0 and src$ <> iam$ then
+    if nodes$="" then
+      nodes$=src$
     else
-      peers$=peers$+" "+shortfrom$
+      nodes$=nodes$+" "+src$
     endif
-    espnow.add_peer(from$)
+  endif
+  if instr(cache$, uniq$) then
+    print "exist in cache"
+    html "<br>exist in cache"
+    exit sub
   endif
   cache$=left$(uniq$+cache$, cachemax)
-  dst$=word$(p$, 2, "|")
-  print "cimzett: " + dst$
-  x=word.count(groups$)
-  groupmatch=0
   forme=0
+  ' en vagyok a cimzett
   if dst$ = iam$ then
     forme=1
   endif
+  ' olyan csoportnak cimeztek-e, aminek tagja vgyok ?
+  grouptarget=0
+  x=word.count(groups$)
   for i=1 to x
     if word$(groups$, i) = dst$ then
-      groupmatch=groupmatch+1
+      grouptarget=grouptarget+1
       forme=forme+1
     endif
   next
-  if (groupmatch > 0) or (forme=0) then
-    forwardpacket p$, shortfrom$
+  ' nem en vagy nem csak en vagyok a cimzett, tovabbitani kell a csomagot
+  if (forme=0) or (grouptarget>0) then
+    espnow.write(p$)
   endif
+  ' kozvetlenul vagy csoporttagsagon keresztul en vagyok a cimzett
   if forme > 0 then
-        userprocess p$
+        userprocess p$, from$
   endif
 end sub
 
-sub forwardpacket p$, f$
-  cnt=word.count(peers$)
-  for i=1 to cnt
-    n$=word$(peers$, i)
-    if n$ <> f$
-      html "<br>    forwarding to: " + n$
-    endif
-  next
-end sub
 
 sub makepacket(payload$, dst$)
-  payload$=str$(msgid, "%04.0f")+shortmac$+"|"+dst$+"|"+payload$
+  payload$=str$(msgid, "%04.0f")+"|"+iam$+"|"+dst$+"|"+payload$
   msgid=msgid+1
   if msgid > 100 then
     msgid=1
   endif
 end sub
 
-sub doScan
-  WIFI.SCAN
-  While WIFI.NETWORKS(A$) = -1
-  Wend
-  lc = word.count(a$, chr$(10))
-  for i = 1 to lc
-    line$ = word$(a$, i, chr$(10))
-    if word$(line$, 1, ",") = "ESP=" then
-      peers$ = peers$ + replace$(word$(line$, 2, ","), ":", "") + " "
-      espnow.add_peer(word$(line$, 2, ","))
-    endif
-  next i
-  if peers$ <> "" then
-    peers$=left$(peers$, len(peers$)-1)
-  endif
-end sub
-
-sub userprocess(p$)
-    print "Valid packet received:  " + p$  
+sub userprocess(p$, from$)
+    html "<br>Valid packet received:  " + p$  
 end sub
  
 
 
 message:
   msg$  = espnow.read$
-  from$ = espnow.remote$ 
+  from$ = ucase$(espnow.remote$)
   return
 
 status:
@@ -194,4 +225,10 @@ status:
   print "TX error on "; espnow.error$  ' print the error
   return
 
-
+lblerror:
+  wlog bas.errmsg$+" in line "+str$(bas.errline)+" ("+str$(bas.errnum)+")"
+  print bas.errmsg$+" in line "+str$(bas.errline)+" ("+str$(bas.errnum)+")"
+  trace bas.errmsg$+" in line "+str$(bas.errline)+" ("+str$(bas.errnum)+")"
+  return
+  
+'§§
