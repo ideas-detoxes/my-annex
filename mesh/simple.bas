@@ -175,10 +175,9 @@ sub printpacket(pre$, pkt$, frm$)
   local msgid$, src$, dst$, ttl$, payload$, h$
   msgid$  =word$(pkt$, 1, "|")
   src$    =word$(pkt$, 2, "|")
-  dst$    =word$(pkt$, 3, "|")
   ttl$    =word$(pkt$, 4, "|")
   payload$=word$(pkt$, 5, "|")
-  h$="<tr><td>"+pre$+"<td>"+msgid$+"<td>"+src$+"<td>"+dst$+"<td>"+ttl$+"<td>"+payload$+"<td>"+frm$+"</tr>"
+  h$="<tr><td>"+pre$+"<td>"+msgid$+"<td>"+src$+"<td>"+ttl$+"<td>"+payload$+"<td>"+frm$+"</tr>"
   html h$
   pktcnt=pktcnt+1
   if pktcnt > 25 then
@@ -203,8 +202,8 @@ sub addtocache(msg$)
   addtostr uniq$, cache$, 3000, ""
 end sub 
 
-sub makepacket(payload$, dst$)
-  payload$=str$(msgid, "%04.0f")+"|"+myself$+"|"+dst$+"|"+str$(startttl)+"|"+payload$
+sub makepacket(payload$)
+  payload$=str$(msgid, "%04.0f")+"|"+str$(startttl)+"|"+payload$
   msgid=msgid+1
   if msgid > 100 then
     msgid=1
@@ -339,7 +338,6 @@ message:
 status:
   printlog "TX error on "+ espnow.error$  ' print the error
   print "TX error on "+ espnow.error$  ' print the error
-  peers$=word.delete$(peers$, word.find(peers$, espnow.error$))
   return
 
   

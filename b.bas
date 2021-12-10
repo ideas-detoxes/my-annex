@@ -75,7 +75,7 @@ gosub printmenu
 do while 1
   if test=1 then
     peers$=allowedpeers$
-    nodes$=allowednodes$
+'    nodes$=allowednodes$
   end if
   if rptr<>wptr then
     msg$=msg$(rptr)
