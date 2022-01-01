@@ -112,15 +112,14 @@ class Nanoweb:
     async def handle(self, reader, writer):
         items = await reader.readline()
         items = items.decode('ascii').split()
+        print(items)
         if len(items) != 3:
             return
 
         request = Request()
         request.read = reader.read
-#        request.write = writer.awrite
-        request.write = writer.write
-        request.close = writer.close
-#        request.close = writer.aclose
+        request.write = writer.awrite
+        request.close = writer.aclose
 
         request.method, request.url, version = items
 
@@ -186,8 +185,7 @@ class Nanoweb:
             if e.args[0] != uerrno.ECONNRESET:
                 raise
         finally:
-            await writer.close()
-#            await writer.aclose()
+            await writer.aclose()
 
     async def run(self):
         return await asyncio.start_server(self.handle, self.address, self.port)

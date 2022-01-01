@@ -17,7 +17,6 @@ except:
 
 sys.path.insert(0, './')
 
-CREDENTIALS = ('foo', 'bar')
 EXAMPLE_ASSETS_DIR = './www/'
 
 
@@ -37,33 +36,11 @@ async def api_send_response(request, code=200, message="OK"):
     await request.write("Content-Type: application/json\r\n\r\n")
     await request.write('{"status": true}')
 
-def authenticate(credentials):
-    async def fail(request):
-        await request.write("HTTP/1.1 401 Unauthorized\r\n")
-        await request.write('WWW-Authenticate: Basic realm="Restricted"\r\n\r\n')
-        await request.write("<h1>Unauthorized</h1>")
-
-    def decorator(func):
-        async def wrapper(request):
-            header = request.headers.get('Authorization', None)
-            if header is None:
-                return await fail(request)
-
-            # Authorization: Basic XXX
-            kind, authorization = header.strip().split(' ', 1)
-            if kind != "Basic":
-                return await fail(request)
-
-            authorization = base64_decode(authorization.strip()) \
-                .decode('ascii') \
-                .split(':')
-
-            if list(credentials) != list(authorization):
-                return await fail(request)
-
-            return await func(request)
-        return wrapper
-    return decorator
+async def api_send_response_text(request, code=200, message="OK", text=''):
+    await request.write("HTTP/1.1 %i %s\r\n" % (code, message))
+    await request.write("Content-Type: text/plain\r\n\r\n")
+    await request.write(text)
+    print(f"Response: {text}")
 
 
 async def api_status(request):
@@ -86,22 +63,6 @@ async def api_status(request):
     }))
 
 
-def listdir(path='.'):
-	ret=[]
-	for f in os.ilistdir(path):
-		fn=f[0]
-		if fn == '.' or fn == '..':
-			pass
-		else:
-			ret.append(fn)
-	return ret
-	
-async def api_ls(request):
-    await request.write("HTTP/1.1 200 OK\r\n")
-    await request.write("Content-Type: application/json\r\n\r\n")
-    await request.write('{"files": [%s]}' % ', '.join(
-        '"' + f + '"' for f in sorted(listdir('.'))
-    ))
 
  
 
@@ -110,12 +71,10 @@ async def api_download(request):
 
     filename = request.url[len(request.route.rstrip("*")) - 1:].strip("/")
 
-#    await request.write("Content-Type: application/octet-stream\r\n")
-    await request.write("Content-Type: text/plain\r\n")
+    await request.write("Content-Type: application/octet-stream\r\n")
     flen=os.stat(filename)[6]
     await request.write(f"Content-Length: {flen}\r\n")
-    await request.write("Content-Disposition: attachment; filename=%s\r\n\r\n"
-                        % filename)
+    await request.write("Content-Disposition: attachment; filename=%s\r\n\r\n" % filename)
     await send_file(request, filename)
 
 
@@ -199,30 +158,66 @@ async def index(request):
         './%s/index.html' % EXAMPLE_ASSETS_DIR,
     )
 
+async def api_mkdir(request):
+    if request.method != "GET":
+        raise HttpError(request, 501, "Not Implemented")
+    print(f"Request: {request.url}")
+    filename = request.url[len(request.route.rstrip("*")) - 1:].strip("\/")
+    try:
+        os.system(f"./mkdir.sh {filename}")
+    except OSError as e:
+        raise HttpError(request, 500, "Internal error")
+    print(f"Directory {filename} created.")
+    await api_send_response_text(request, 201, "Created", 'Created')
+
+
+def listdir(path='./'):
+    ret=[]
+    for f in os.ilistdir(path):
+        fn=f[0]
+        if fn == '.' or fn == '..':
+            pass
+        else:
+            stat=os.stat(path+fn)
+            if stat[3]==2:
+                pass
+            else:
+                ret.append(path+fn)
+    return ret
+	
+
+async def api_ls(request):
+    print(f"Request: {request.url}")
+    path = request.url[len(request.route.rstrip("*")) - 1:].strip("/")+"/"
+    response = '%s' % ' '.join(f for f in sorted(listdir(path)))
+    await api_send_response_text(request, 201, 'Listed', response)
+#    print(f"Response:{response}")
+#    await request.write(response)
+
 
 naw = Nanoweb(8080)
 naw.assets_extensions += ('ico',)
 naw.STATIC_DIR = EXAMPLE_ASSETS_DIR
 
 # Declare route from a dict
+# naw.routes = {
+#     '/': index,
+#     '/assets/*': assets,
+#     '/api/upload/*': upload,
+#     '/api/status': api_status,
+#     '/api/ls': api_ls,
+#     '/api/download/*': api_download,
+#     '/api/delete/*': api_delete,
+# }
+
 naw.routes = {
-    '/': index,
-    '/assets/*': assets,
-    '/api/upload/*': upload,
-    '/api/status': api_status,
-    '/api/ls': api_ls,
+    '/api/mkdir/*': api_mkdir,
+    '/api/ls/*': api_ls,
     '/api/download/*': api_download,
-    '/api/delete/*': api_delete,
-}
-naw.routes = {
-    '/': api_ls,
     '/index*': api_download,
-    '/*': api_download,
     '/assets/*': assets,
     '/api/upload/*': upload,
     '/api/status': api_status,
-    '/api/ls': api_ls,
-    '/api/download/*': api_download,
     '/api/delete/*': api_delete,
 }
 
@@ -232,39 +227,8 @@ async def ping(request):
     await request.write("HTTP/1.1 200 OK\r\n\r\n")
     await request.write("pong")
 
-def flist(path='.'):
-	ret=[]
-	for f in os.ilistdir(path):
-		fn=f[0]
-		if fn.endswith('.py'):
-			tm=os.stat(fn)[9]
-#			print(f"---{fn}:{tm}---")
-			ret.append( (fn, tm) )
-	return ret
-	
-async def compiler():
-	old=[]
-	new=[]
-	while True:
-		await asyncio.sleep_ms(333)
-		print('.', end='')
-		if len(old) == 0:
-			old=flist()
-		new=flist()
-		cnt=len(new)
-		for i in range(cnt):
-			fn=new[i][0]
-			told=old[i][1]
-			tnew=new[i][1]
-#				print(f"{fn} {told} {tnew}") 
-			if tnew != told:
-				print(f"\ncompiling {fn}")
-				os.system(f"./mpy-cross {fn}")
-		old=new[:]
-			
-			
+
 loop = asyncio.get_event_loop()
 loop.create_task(naw.run())
-loop.create_task(compiler())
 loop.run_forever()
 

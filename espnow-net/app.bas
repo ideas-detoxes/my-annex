@@ -1,0 +1,5 @@
+print "STARTER"
+wlog  "STARTER"
+
+
+
