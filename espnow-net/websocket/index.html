@@ -1,0 +1,207 @@
+<body onload=ConnectWebSocket()>
+
+<table>
+    <td>Connection
+    <td><button onclick=ConnectWebSocket() id=reconnect>Reconnect</button>
+    <td><svg height=20 width=30><rect fill=grey height=18 id=status stroke=black width=18 x=1 y=1 /></svg>
+    <td><input type="file" id="file-input" />
+    <td><button onclick=MyTest() id=mytest title="Test">Test</button>
+</table>
+<div id=wfile style="display: none;">
+Woking file:<pre id="file-content"></pre>
+</div>
+<div id=log_div>
+</div>
+</body>
+<script>
+function readSingleFile(e) {
+    var file = e.target.files[0];
+    if (!file) {
+        return;
+    }
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var contents = e.target.result;
+        displayContents(contents);
+    };
+    reader.readAsText(file);
+    }
+    
+    function displayContents(contents) {
+    var element = document.getElementById('file-content');
+    element.textContent = contents;
+    }
+    
+    document.getElementById('file-input').addEventListener('change', readSingleFile, false);
+</script>
+<script>
+    var p_interval, tm, save_position;
+    function _$(e) {
+      return document.getElementById(e)
+    }
+
+    function ConnectWebSocket() {
+        console.log("ConnectWebSocket:" + typeof connection)
+        if (typeof connection != "undefined") {
+            connection.onclose = function() {}
+            connection.close()
+        }
+        setTimeout(function() {
+            connect()
+        }, 500)
+    }
+
+
+    function connect() {
+        ip="10.42.0.110"
+        port = 80
+        connection = new WebSocket("ws://" + ip + ":" + port + "/ws", "Editor"), 
+        connection.onopen = function() {
+            _$("status").style.fill = "green", 
+            connection.send("cmd:getver"), 
+            connection.send("cmd:gethelp")
+            p_interval = setInterval(ping, 5000);
+        }
+        connection.onclose = function() {
+            _$("status").style.fill = "red"
+        } 
+        connection.onerror = function(e) {
+            _$("status").style.fill = "ff9900"
+        }
+        connection.onmessage = function(e) {
+            var t = e.data;
+            _$("status").style.fill = "green"
+            clearTimeout(tm)
+            connection.send("$")
+            if ("INIT:" == t.substr(0, 5)) {
+                return 
+            }
+            if ("SAVE:GIVE" == t) {
+                connection.send("save:more" + buff.substr(save_position, 512)), 
+                void(save_position += 512);
+                return 
+            }
+            if ("SAVE:END" == t) {
+                connection.send("load:" + "/b.bas")
+                connection.send("cmd:run")
+                return 
+            }
+            if ("SAVE:ERR" == t) {
+                if ("DIR:" == t.substr(0, 4)) {
+                for (t = t.substr(4), dirfiles = t.split("\n"), dirfiles.sort(); 0 < dlist.options.length;) dlist.remove(0);
+                var n = new Array;
+                for (i = 0; i < dirfiles.length; i++) {
+                    n[i] = dirfiles[i].split("/");
+                }
+                var o = new Array;
+                for (i = 0; i < n.length; i++) "" == n[i][0] ? void 0 !== n[i][1] && (void 0 !== n[i][2] ? o.push("/" + n[i][1]) : o.push("/")) : void 0 !== n[i][0] && (void 0 !== n[i][1] ? o.push(n[i][0]) : o.push(""));
+                if (uniqueArray = o.filter(function(e, t, n) {
+                    return n.indexOf(e) == t
+                    }), 
+                    uniqueArray = uniqueArray.sort(), 
+                    0 < uniqueArray.length)
+                    for (var i = 0; i < uniqueArray.length; i++) dlist.add(new Option(uniqueArray[i], uniqueArray[i]));
+                return dlist.value = "/", "undefined" != typeof Storage && null != localStorage.getItem("esp_default_dir") && (dlist.value = localStorage.getItem("esp_default_dir")), void DirectoriesClick(this)
+                }
+            }
+            if (t.startsWith("GETVAR:")) {
+                l = t.substr(7).split("_^-");
+                _$("var1_value").value = l[0],
+                _$("var2_value").value = l[1]
+                return 
+            }
+            if (t.startsWith("VERSION:")) {
+//                _$("version").innerHTML = t.substr(8);
+            } 
+            if (t.startsWith("LOG:")) {
+                _$("log_div").innerText += "\n" + t.substr(4)
+            }
+        }
+    }
+    function pong() { 
+        clearTimeout(tm), _$("status").style.fill = "green" 
+    }
+
+    function ping() { 
+        if (connection.readyState >= connection.CLOSING) {
+            connect() 
+        } else {  
+            connection.send("__ping__")
+            console.log("I'm pinging ")
+            tm = setTimeout(function () { 
+                                _$("status").style.fill = "grey" 
+                            }, 1e3) 
+        }
+    }
+    
+    function cmdLoad(e) {
+      var t = _$("file_name");
+      connection.send("load:" + "/b.bas")
+    }
+/* 
+    function cmdSave(e) {
+      var t;
+      if (buff = editAreaLoader.getValue("code"), 
+            0 == buff.endsWith("\n") && (buff += "\n"), 
+            load_pending = "none" == _$("file_editor_div").style.display ? 
+            (t = _$("file_name"), !0) : (t = _$("file_name_editor"), !1), 
+            filesize = buff.length, 
+            position = 0, 31 < t.value.length) 
+            return alert("The filename " + t.value + " is too long!\n It must be less than 31 characters including the path."), 
+            void(load_pending = !1);
+      "" != t.value && connection.send("save:start" + t.value), 
+      set_local_storage()
+    }
+ */    
+    function cmdSave() {
+      var t;
+      buff = _$("file-content").innerText
+      if (buff.endsWith("\n") != 0) {
+        buff += "\n";
+      }
+      filesize = buff.length
+      save_position = 0
+      connection.send("save:start" + "/b.bas")
+      return;
+      if (buff = editAreaLoader.getValue("code"), 
+            0 == buff.endsWith("\n") && (buff += "\n"), 
+            load_pending = "none" == _$("file_editor_div").style.display ? 
+            (t = _$("file_name"), !0) : (t = _$("file_name_editor"), !1), 
+            filesize = buff.length, 
+            position = 0, 31 < t.value.length) 
+            return alert("The filename " + t.value + " is too long!\n It must be less than 31 characters including the path."), 
+            void(load_pending = !1);
+      "" != t.value && connection.send("save:start" + t.value), 
+      set_local_storage()
+    }
+
+
+    function cmdClick(e) {
+      connection.send("cmd:" + e.id)
+    }
+
+    function cmdRun() {
+      for (var e = editAreaLoader.getBreakpoints("code"), t = 0; t < e.length; t++) e[t] = ("00000" + e[t])
+        .substr(-5);
+      connection.send("cmd:run " + e)
+    }
+
+    function onImmediateChange(e) {
+      if (13 == e.keyCode || 10 == e.keyCode) {
+        var t = _$("immediate")
+          .value.substr(0, _$("immediate")
+            .selectionStart)
+          .split("\n")
+          .length;
+        connection.send("cmd:immediate " + _$("immediate")
+          .value.split("\n")[t - 1] + "   ")
+      }
+    }
+    function MyTest() {
+//        connection.send("load:/b.bas")
+//        connection.send("cmd:run")
+//        connection.send("cmd:immediate wlog time$")
+        cmdSave();
+    }
+
+</script>

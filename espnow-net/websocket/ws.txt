@@ -1,0 +1,27 @@
+> -- from browser ro esp
+< -- from asp to browser
+Keepalive:
+    >__ping__
+    <__pong__
+    >$
+
+RUN:
+    >cmd:run
+
+SAVE:
+    >save:start/b.bas
+    <SAVE:GIVE
+    >$
+    >save:more ... ( data in max 511 bytes chunks)
+    <SAVE:GIVE
+    >$
+    .
+    .
+    >save:more (less than 511 bytes)
+    <SAVE:END
+    >$
+
+LOAD:
+    >load:/app.bas
+
+

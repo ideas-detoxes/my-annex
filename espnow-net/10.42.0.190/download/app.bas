@@ -17,8 +17,9 @@ dim sq$(count)
 cache$="xXx"
 routes$=""
 serial=1
+lastmsg=0
 msgcnt=0
-lastmsgtime=0
+missedcnt=0
 
 sendcycle=77
 onEspNowError status
@@ -42,8 +43,8 @@ loop
 sub getMac pkt$, mac$
     mac$ = val(word$(pkt$, 1, "|"))
 end sub
-sub getSerial pkt$, serial$
-    serial$ = word$(pkt$, 2, "|")
+sub getSerial pkt$, serial
+    serial = val(word$(pkt$, 2, "|"))
 end sub
 sub getCommand pkt$, pcommand$
     pcommand$ = word$(pkt$, 3, "|")
@@ -140,7 +141,15 @@ return
 sub process msg$
 local tmp
     msgcnt=msgcnt+1
-    print "Received", msg$, rcvrptr, rcvwptr, msgcnt, millis-lastmsgtime
-    lastmsgtime = millis
+    tmp=0
+    getSerial msg$, tmp
+    print "Received", msg$, rcvrptr, rcvwptr, tmp,
+    if (lastmsg+1) <> tmp then
+        missedcnt=missedcnt+1
+        print "******"
+    else
+        print msgcnt;"/";missedcnt,str$(((missedcnt/msgcnt)*100),"%02.1f")
+    end if
+    lastmsg = tmp
 end sub 
 

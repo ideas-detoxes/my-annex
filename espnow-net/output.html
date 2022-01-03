@@ -1,0 +1,240 @@
+<meta charset=utf-8>
+<meta content="width=device-width,initial-scale=1" name=viewport>
+
+<body onbeforeunload=unloadme() onload=ConnectWebSocket()>
+  <div id=link_space style=display:none>
+    <div class=topnav><a href=. class=active>Output</a>
+      < a href=. / editor> Editor < /a><a href=./config> Config < /a>
+              <a href=./filemng> File Manager < /a><a
+                    onclick='connection.send("cmd:run")'>Run</a>
+                  <a onclick='connection.send("cmd:pause")'>Pause</a>
+                  < a onclick='connection.send("cmd:stop")'> Stop <
+                      /a>
+    </div>
+    <hr>
+    <table>
+      <tr>
+        <td>OUTPUT PAGE
+        <td>Connection
+        <td><svg height=20 width=30>
+            <rect fill=grey height=18 id=status stroke=black width=18
+              x=1 y=1 />
+          </svg>
+        <td><button onclick=ConnectWebSocket()>Reconnect</button>
+        <td><button onclick=reloadMe()>Reload Page</button>
+    </table>
+    <hr>
+  </div>
+  <script>
+    function _$(t) { return document.getElementById(t) } window
+      .location.search.substr(1)
+      .startsWith("menu") && (_$("link_space")
+        .style.display = "block")
+  </script>
+  <style>
+    .topnav {
+      overflow: hidden;
+      background-color: #000
+    }
+
+    .topnav a {
+      -moz-border-radius: 16px;
+      -webkit-border-radius: 16px;
+      border-radius: 16px;
+      display: inline-block;
+      cursor: pointer;
+      color: #fff;
+      font-family: Arial;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 12px;
+      text-decoration: none;
+      margin: 5px
+    }
+
+    .topnav a.active {
+      -moz-box-shadow: 2px 2px 10px 0 #3e7327;
+      -webkit-box-shadow: 2px 2px 10px 0 #3e7327;
+      box-shadow: 2px 2px 10px 0 #3e7327;
+      background-color: #77b55a;
+      border: 3px solid #4b8f29
+    }
+
+    .topnav a:hover {
+      background-color: #fb9e25
+    }
+
+    .topnav a {
+      -moz-box-shadow: 2px 2px 10px 0 #768d87;
+      -webkit-box-shadow: 2px 2px 10px 0 #768d87;
+      box-shadow: 2px 2px 10px 0 #768d87;
+      background-color: #768d87;
+      border: 3px solid #566963
+    }
+  </style>
+  <div id=inner_page></div>
+  <div id=css_page></div>
+  <script>
+    var _local_variables = {}
+      , tm, p_interval, rfr = 0
+      , innerHTML = "";
+
+    function unloadme() { connection.close(), clearTimeout(tm),
+        clearInterval(p_interval) }
+
+    function ConnectWebSocket() { "undefined" != typeof connection &&
+        connection.close(), connect(), clearTimeout(tm) }
+
+    function ping() { connection.readyState >= connection.CLOSING ?
+        connect() : (connection.send("__ping__"), console.log(
+          "sto pingando"), tm = setTimeout(function () { _$(
+              "status")
+            .style.fill = "grey" }, 1e3)) }
+
+    function pong() { clearTimeout(tm), _$("status")
+        .style.fill = "green" }
+
+    function initGauges() { var e = document.getElementsByTagName(
+        "canvas");
+      BaseGauge.fromElement(e[0]) }
+
+    function connect() { port = location.port, "" != port && 0 !=
+        port ? port = ":" + port : port = "", connection =
+        new WebSocket("ws://" + location.hostname + port + "/ws",
+          "Output"), connection.onopen = function (e) { _$("status")
+            .style.fill = "green", reloadMe(), connection.onclose =
+            function (e) { _$("status")
+                .style.fill = "red" }, connection.onerror = function (
+              e) { _$("status")
+                .style.fill = "#ff9900" }, connection.onmessage =
+            function (e) { _$("status")
+                .style.fill = "green", clearTimeout(tm); var res = e
+                .data; if (connection.send("$"), "__pong__" != res)
+                if (res.startsWith("cls")) { "undefined" !=
+                  typeof cls_wrapper && cls_wrapper(), 0 != rfr &&
+                    clearInterval(rfr), _$("inner_page")
+                    .innerHTML = "", _$("css_page")
+                    .innerHTML = "", innerHTML = "",
+                    _local_variables = {}; var p = document
+                  .gauges; if (null == p) return; for (i = document
+                    .gauges.length - 1; 0 <= i; i--) document.gauges[
+                    i].destroy() } else { if (res.startsWith("html"))
+                    return "undefined" != typeof html_wrapper ?
+                      innerHTML += html_wrapper(e.data.substr(4)) :
+                      innerHTML += e.data.substr(4), _$("inner_page")
+                      .innerHTML = innerHTML, void(
+                      _local_variables = {}); if (res.startsWith(
+                      "csscls")) _$("css_page")
+                    .innerHTML = "";
+                  else if (res.startsWith("csshtml")) _$("css_page")
+                    .insertAdjacentHTML("beforeend", e.data.substr(
+                    7));
+                  else if (res.startsWith("jscript")) { var g =
+                      document.createElement("script");
+                    g.text = e.data.substr(7); var p = document
+                      .getElementsByTagName("script")[0]
+                      , r = p.parentNode;
+                    r.appendChild(g) } else if (res.startsWith(
+                      "extjs")) { var g = document.createElement(
+                      "script");
+                    g.type = "text/javascript", g.src = e.data.substr(
+                      5); for (var ll = document.getElementsByTagName(
+                        "script"), i = 0; i < ll.length; i++)
+                      if (ll[i].src == g.src) return;
+                    document.getElementsByTagName("script")[0]
+                      .parentNode.appendChild(g) } else if (res
+                    .startsWith("extcss")) { var g = document
+                      .createElement("link");
+                    g.rel = "stylesheet", g.type = "text/css", g
+                      .href = e.data.substr(6); for (var ll = document
+                        .getElementsByTagName("link"), i = 0; i < ll
+                      .length; i++)
+                      if (ll[i].href == g.href) return;
+                    document.getElementsByTagName("BODY")[0]
+                      .appendChild(g) } else if (res.startsWith(
+                      "GETVAR:"))
+                    for (var z = e.data.substr(7)
+                        .split("_^-"), all = document
+                        .getElementsByTagName("*"), s = "", k = 0, i =
+                        0, max = all.length; i < max; i++) { var v =
+                        all[i]
+                        , t = v.type
+                        , t2 = Object.prototype.toString.call(v)
+                        .slice(8, -1)
+                        , vr = v.getAttribute("data-var"); if (null !=
+                        vr) { var col; if (console.log(t), "text" !=
+                          t && "password" != t && "textarea" != t &&
+                          "range" != t && "select-one" != t &&
+                          "HTMLMeterElement" != t2 || (
+                            _local_variables[t + vr] != z[k] && (
+                              _local_variables[t + vr] = v.value = z[
+                                k]), k++), "checkbox" == t && (v
+                            .checked = 0 != z[k], k++), "radio" ==
+                          t && (v.checked = z[k] == v.value, k++),
+                          "SVGCircleElement" == t2) col = -1 == vr
+                          .indexOf("$") ? 0 == z[k] ? "red" :
+                          "green" : z[k], v.style.fill = col,
+                          k++; "HTMLCanvasElement" == t2 && (
+                          _local_variables[t2 + vr] != z[k] && (
+                            _local_variables[t2 + vr] = v.dataset
+                            .value = z[k]), k++) } } else if (res
+                      .startsWith("REFRESH:")) getVariables();
+                    else { if (res.startsWith("AUTOREFRESH:")) { var
+                          x = e.data.substr(12); return 0 != rfr &&
+                          clearInterval(rfr), void(10 <= x && (rfr =
+                            setInterval(getVariables, x))) } res
+                        .startsWith("CURLINE:") || (res.startsWith(
+                            "JSCALL:") ? eval(res.substr(7)) : res
+                          .startsWith("LOG:") || (res.startsWith(
+                            "Hello Client ") ? reloadMe() : alert(
+                            "websocket " + res))) } } else
+            pong() } } }
+
+    function isNumeric(e) { return !isNaN(parseFloat(e)) && isFinite(
+        e) }
+
+    function cmdChange(e) { if ("keypress" == e.type && 13 == e
+        .keyCode || "focusout" == e.type || "change" == e.type ||
+        "input" == e.type) { var t = e.target.getAttribute(
+          "data-var")
+          , n = e.target.type; if ("checkbox" == n) var r = e.target
+          .checked ? 1 : 0;
+        else r = e.target.value.replace(/\n/gi, "\r"); - 1 != t
+          .indexOf("$") ? (connection.send("cmd:immediatx" + t +
+              '="' + r + '":HtmlEventVar$="' + t + '"\n '),
+            _local_variables[n + t] = r) : 1 == isNumeric(r) ? (
+            connection.send("cmd:immediatx" + t + "=" + r +
+              ':HtmlEventVar$="' + t + '"\n '), _local_variables[n +
+              t] = r) : (e.target.value = 0 | _local_variables[n + t],
+            alert("The value must be Numeric")) } }
+
+    function cmdButton(e) { var t = e.getAttribute("data-var");
+      connection.send('cmd:gotoHtmlEventButton$="' + e.innerText +
+        '": gosub ' + t) }
+
+    function getVariables() { for (var e = document
+          .getElementsByTagName("*"), t = " ", n = 0, r = e
+          .length; n < r; n++) { var a = e[n]
+          , s = a.type
+          , i = Object.prototype.toString.call(a)
+          .slice(8, -1)
+          , l = a.getAttribute("data-var");
+        null != l && ("text" != s && "password" != s && "textarea" !=
+          s && "range" != s && "select-one" != s && "checkbox" !=
+          s && "radio" != s && "HTMLMeterElement" != i &&
+          "HTMLCanvasElement" != i && "SVGCircleElement" != i || (
+            t = t + l + " _^- ")) } t = t.substr(t, t.length - 4),
+        connection.send("cmd:getvars" + t) }
+
+    function reloadMe() { connection.send("cmd:reload") } p_interval =
+      setInterval(ping, 5e3);
+    var synth = window.speechSynthesis
+      , voices = synth.getVoices();
+
+    function speakMe(e, t) { for (t = t || "en-US", voices = synth
+        .getVoices(), utterThis = new SpeechSynthesisUtterance(e), i =
+        0; i < voices.length; i++)
+        if (-1 != voices[i].lang.indexOf(t)) { utterThis.voice =
+            voices[i]; break } utterThis.pitch = 1, utterThis.rate =
+        1, synth.speak(utterThis) }
+  </script>

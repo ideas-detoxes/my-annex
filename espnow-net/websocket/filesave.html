@@ -1,0 +1,18 @@
+<script>
+// (A) CREATE BLOB OBJECT
+var myBlob = new Blob(["CONTENT"], {type: "text/plain"});
+
+// (B) CREATE DOWNLOAD LINK
+var url = window.URL.createObjectURL(myBlob);
+var anchor = document.createElement("a");
+anchor.href = url;
+anchor.download = "demo.txt";
+    
+// (C) "FORCE DOWNLOAD"
+// NOTE: MAY NOT ALWAYS WORK DUE TO BROWSER SECURITY
+// BETTER TO LET USERS CLICK ON THEIR OWN
+anchor.click();
+window.URL.revokeObjectURL(url);
+document.removeChild(anchor);
+
+</script>

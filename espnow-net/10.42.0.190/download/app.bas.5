@@ -1,3 +1,7 @@
+Content-Type: application/octet-stream
+Content-Length: 3576
+Content-Disposition: attachment; filename=10.42.0.190/app.bas
+
 
 
 
@@ -42,8 +46,8 @@ loop
 sub getMac pkt$, mac$
     mac$ = val(word$(pkt$, 1, "|"))
 end sub
-sub getSerial pkt$, serial$
-    serial$ = word$(pkt$, 2, "|")
+sub getSerial pkt$, serial
+    serial = val(word$(pkt$, 2, "|"))
 end sub
 sub getCommand pkt$, pcommand$
     pcommand$ = word$(pkt$, 3, "|")
@@ -140,6 +144,7 @@ return
 sub process msg$
 local tmp
     msgcnt=msgcnt+1
+    getSerial msg$, tmp
     print "Received", msg$, rcvrptr, rcvwptr, msgcnt, millis-lastmsgtime
     lastmsgtime = millis
 end sub 
