@@ -1,0 +1,751 @@
+<meta charset=utf-8>
+<meta content="width=device-width,initial-scale=1" name=viewport>
+<div class=topnav id=link_space><a href=.>Output</a><a href=./editor class=active>Editor</a><a href=./config>Config</a><a href=./filemng>File Manager</a></div>
+<hr>
+<style>
+  .topnav {
+    overflow: hidden;
+    background-color: #000
+  }
+  
+  .ButBlue,
+  .ButGreen,
+  .ButGrey,
+  .ButOrange,
+  .ButPurple,
+  .ButRed,
+  .ButYellow,
+  .topnav a {
+    -moz-border-radius: 16px;
+    -webkit-border-radius: 16px;
+    border-radius: 16px;
+    display: inline-block;
+    cursor: pointer;
+    color: #fff;
+    font-family: Arial;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 12px;
+    text-decoration: none;
+    margin: 5px
+  }
+  
+  .ButBlue:active,
+  .ButGreen:active,
+  .ButGrey:active,
+  .ButOrange:active,
+  .ButPurple:active,
+  .ButRed:active,
+  .ButYellow:active {
+    position: relative;
+    top: 1px
+  }
+  
+  .ButBlue {
+    -moz-box-shadow: 2px 2px 10px 0 #276873;
+    -webkit-box-shadow: 2px 2px 10px 0 #276873;
+    box-shadow: 2px 2px 10px 0 #276873;
+    background-color: #599bb3;
+    border: 3px solid #29668f
+  }
+  
+  .ButBlue:hover {
+    background-color: #408c99
+  }
+  
+  .ButGreen,
+  .headerGreen,
+  .topnav a.active {
+    -moz-box-shadow: 2px 2px 10px 0 #3e7327;
+    -webkit-box-shadow: 2px 2px 10px 0 #3e7327;
+    box-shadow: 2px 2px 10px 0 #3e7327;
+    background-color: #77b55a;
+    border: 3px solid #4b8f29;
+    -moz-margin-before: 0;
+    -webkit-margin-before: 0;
+    margin-before: 0;
+    -moz-margin-after: 0;
+    -webkit-margin-after: 0;
+    margin-after: 0
+  }
+  
+  .ButGreen:hover {
+    background-color: #609c41
+  }
+  
+  .ButRed,
+  .headerRed {
+    -moz-box-shadow: 2px 2px 10px 0 #d0451b;
+    -webkit-box-shadow: 2px 2px 10px 0 #d0451b;
+    box-shadow: 2px 2px 10px 0 #d0451b;
+    background-color: #d0451b;
+    border: 3px solid #942911;
+    -moz-margin-before: 0;
+    -webkit-margin-before: 0;
+    margin-before: 0;
+    -moz-margin-after: 0;
+    -webkit-margin-after: 0;
+    margin-after: 0
+  }
+  
+  .ButRed:hover {
+    background-color: #bc3315
+  }
+  
+  .ButOrange {
+    -moz-box-shadow: 2px 2px 10px 0 #ffc477;
+    -webkit-box-shadow: 2px 2px 10px 0 #ffc477;
+    box-shadow: 2px 2px 10px 0 #ffc477;
+    background-color: #ffc477;
+    border: 3px solid #c49037;
+    color: #444
+  }
+  
+  .ButOrange:hover,
+  .topnav a:hover {
+    background-color: #fb9e25
+  }
+  
+  .ButGrey,
+  .topnav a {
+    -moz-box-shadow: 2px 2px 10px 0 #768d87;
+    -webkit-box-shadow: 2px 2px 10px 0 #768d87;
+    box-shadow: 2px 2px 10px 0 #768d87;
+    background-color: #768d87;
+    border: 3px solid #566963
+  }
+  
+  .ButGrey:hover {
+    background-color: #6c7c7c
+  }
+  
+  .ButPurple {
+    -moz-box-shadow: 2px 2px 10px 0 #cb94f7;
+    -webkit-box-shadow: 2px 2px 10px 0 #cb94f7;
+    box-shadow: 2px 2px 10px 0 #cb94f7;
+    background-color: #cb94f7;
+    border: 3px solid #a66bd1
+  }
+  
+  .ButPurple:hover {
+    background-color: #bc80ea
+  }
+  
+  .ButYellow {
+    -moz-box-shadow: 2px 2px 10px 0 #ff0;
+    -webkit-box-shadow: 2px 2px 10px 0 #ff0;
+    box-shadow: 2px 2px 10px 0 #ff0;
+    background-color: #ff0;
+    border: 3px solid #fc0;
+    color: #444
+  }
+  
+  .ButYellow:hover {
+    background-color: #e0e000
+  }
+  
+  input[type=text],
+  select,
+  textarea {
+    background: #f1f1f1;
+    background-position: 5px -7px!important;
+    padding: 6px 6px 6px 6px;
+    width: 200px;
+    border: 1px solid #ccc;
+    -moz-border-radius: 10px;
+    -webkit-border-radius: 10px;
+    border-radius: 10px;
+    -moz-box-shadow: 0 1px 1px #ccc inset, 0 1px 0 #fff;
+    -webkit-box-shadow: 0 1px 1px #ccc inset, 0 1px 0 #fff;
+    box-shadow: 2px 2px 2px #ccc inset, 0 1px 0 #fff;
+    margin: 5px;
+    margin-bottom: 0;
+    margin-top: 1px
+  }
+  
+  input:focus,
+  select:focus,
+  textarea:focus {
+    background-color: #efe;
+    border-color: #e8c291;
+    outline: 0;
+    -moz-box-shadow: 0 0 0 1px #e8c291 inset;
+    -webkit-box-shadow: 0 0 0 1px #e8c291 inset;
+    box-shadow: 0 0 0 1px #e8c291 inset
+  }
+  
+  #var1_name,
+  #var1_value,
+  #var2_name,
+  #var2_value {
+    height: 32px
+  }
+  
+  #immediate {
+    width: 440px;
+    height: 80px
+  }
+  
+  #toast {
+    visibility: hidden;
+    min-width: 250px;
+    margin-left: -125px;
+    background-color: #36f;
+    color: #fff;
+    text-align: center;
+    border-radius: 20px;
+    padding: 16px;
+    position: fixed;
+    z-index: 1;
+    left: 50%;
+    bottom: 150px;
+    font-size: 17px
+  }
+  
+  #toast.show {
+    visibility: visible;
+    -webkit-animation: fadein .5s, fadeout .5s 2.5s;
+    animation: fadein .5s, fadeout .5s 2.5s
+  }
+  
+  @-webkit-keyframes fadein {
+    from {
+      bottom: 0;
+      opacity: 0
+    }
+    to {
+      bottom: 150px;
+      opacity: 1
+    }
+  }
+  
+  @keyframes fadein {
+    from {
+      bottom: 0;
+      opacity: 0
+    }
+    to {
+      bottom: 150px;
+      opacity: 1
+    }
+  }
+  
+  @-webkit-keyframes fadeout {
+    from {
+      bottom: 150px;
+      opacity: 1
+    }
+    to {
+      bottom: 0;
+      opacity: 0
+    }
+  }
+  
+  @keyframes fadeout {
+    from {
+      bottom: 150px;
+      opacity: 1
+    }
+    to {
+      bottom: 0;
+      opacity: 0
+    }
+  }
+  
+  .modal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    padding-top: 100px;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: #000;
+    background-color: rgba(0, 0, 0, .4)
+  }
+  
+  .modal-content {
+    background-color: #fefefe;
+    margin: auto;
+    padding: 20px;
+    border: 3px solid #888;
+    width: 450px;
+    -moz-box-shadow: 20px 20px 10px 0 #768d87;
+    -webkit-box-shadow: 20px 20px 10px 0 #768d87;
+    box-shadow: 20px 20px 10px 0 #768d87;
+    border: 3px solid #566963
+  }
+  
+  .close {
+    color: #000;
+    float: right;
+    font-size: 28px;
+    font-weight: 700
+  }
+  
+  .close:focus,
+  .close:hover {
+    color: #fff;
+    text-decoration: none;
+    cursor: pointer
+  }
+  
+  .wrapper {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-gap: .1em;
+    justify-items: stretch;
+    align-items: stretch
+  }
+  
+  .box1 {
+    grid-column: 1/3;
+    grid-row: 1
+  }
+  
+  .box2 {
+    grid-column: 1/3;
+    grid-row: 2
+  }
+  
+  .box3 {
+    grid-column: 1/3;
+    grid-row: 3
+  }
+  
+  .box4 {
+    grid-column: 1/3;
+    grid-row: 4
+  }
+  
+  .box5 {
+    grid-column: 1/3;
+    grid-row: 5
+  }
+  
+  .box6 {
+    grid-column: 1/3;
+    grid-row: 6
+  }
+  
+  @media (min-aspect-ratio:5/3) {
+    .box1 {
+      grid-column: 1/3;
+      grid-row: 1
+    }
+    .box2 {
+      grid-column: 1/3;
+      grid-row: 2
+    }
+    .box3 {
+      grid-column: 1;
+      grid-row: 3/6
+    }
+    .box4 {
+      grid-column: 2;
+      grid-row: 3
+    }
+    .box5 {
+      grid-column: 2;
+      grid-row: 4
+    }
+    .box6 {
+      grid-column: 2;
+      grid-row: 5
+    }
+  }
+
+</style>
+<script onerror='alert("edit_area_full.js.gz is missing!")' src=edit_area_full.js></script>
+<script>
+  editAreaLoader.init({
+    id: "code",
+    syntax: "basic",
+    start_highlight: !0,
+    toolbar: "load,save,|,run,stop,|,undo,redo,|,search,go_to_line,|,highlight,|,select_font,|,syntax_selection,|,new_document,|,fullscreen,|,breakpoints,|,add_comments,remove_comments,|,beautify,|,help",
+    max_breakpoints: "5",
+    replace_tab_by_spaces: "2",
+    allow_toggle: !1,
+    load_callback: "cmdOpen",
+    save_callback: "cmdSave",
+    new_callback: "cmdNew",
+    run_callback: "cmdRun",
+    stop_callback: "connection.send('cmd:stop')"
+  })
+
+</script>
+
+<body onload=ConnectWebSocket()>
+  <div class=wrapper>
+    <div class=box1>File to Run
+      <input id=file_name title="Program that will be executed"> Advanced
+      <input id=advanced title="Enable the advanced mode" type=checkbox onclick=toggleAdvanced()>
+      <label id=file_editor_div style=display:none>File to Edit
+        <input id=file_name_editor title="File in the editor">
+      </label>
+      <label id=version style=border:2px;border-style:solid;padding:.2em;background-color:#98cedd></label>
+    </div>
+    <div class=box2>
+      <table>
+        <td>
+          <button class=ButGreen onclick=getOpenWindow() id=open title="Open the file in the editor">Open</button>
+          <td>
+            <button class=ButRed onclick=cmdSave(this) id=save title="Save the file on the ESP">Save</button>
+            <td>
+              <button class=ButBlue onclick=getSaveWindow() id=save_as title="Save the file with a new Name">Save As</button>
+              <td>
+                <button class=ButOrange onclick=cmdRun() id=run title="Run the program; the file must be loaded before">Run</button>
+                <td>
+                  <button class=ButGrey onclick=cmdClick(this) id=stop title="Stop the program">Stop</button>
+                  <td>
+                    <button class=ButPurple onclick=cmdClick(this) id=pause title="Pause the execution">Pause</button>
+                    <td>
+                      <button class=ButYellow onclick=cmdClick(this) id=step title="Execute a single line">Step</button>
+                      <td>Connection
+                        <td>
+                          <svg height=20 width=30>
+                            <rect fill=grey height=18 id=status stroke=black width=18 x=1 y=1 />
+                          </svg>
+                          <td>
+                            <button class=ButGreen onclick=ConnectWebSocket() id=reconnect title="Reconnect with the ESP">Reconnect</button>
+      </table>
+    </div>
+    <div class=box3>
+      <textarea id=code rows=20 style=width:100%>code</textarea>
+    </div>
+    <div class=box4>
+      <textarea id=log rows=10 style=width:99% spellcheck=false>log</textarea>
+    </div>
+    <div class=box5>
+      <table>
+        <tr>
+          <td>Variable
+            <td>
+              <textarea id=var1_name onkeypress=cmdVarPressReturn(event)></textarea>
+              <td>Value
+                <td>
+                  <textarea id=var1_value></textarea>
+                  <td rowspan=2>
+                    <button class=ButBlue onclick=cmdGetVars(event) id=get_vars title="Get the value of the variables defined at left">Get Variables</button>
+                    <td>
+                      <button class=ButOrange onclick='_$("log").value=""' title="Clear the log window">Clear</button>
+                      <br>Stop log
+                      <input id=stop_log title="Stop Auto log" type=checkbox>
+                      <tr>
+                        <td>Variable
+                          <td>
+                            <textarea id=var2_name onkeypress=cmdVarPressReturn(event)></textarea>
+                            <td>Value
+                              <td>
+                                <textarea id=var2_value></textarea>
+      </table>
+    </div>
+    <div class=box6>
+      <table>
+        <td style=margin:0>Immediate
+          <td colspan=3>
+            <textarea id=immediate onkeypress=onImmediateChange(event) title="Execute any command when pressing enter &#013Use CTRL + enter to repeat commands"></textarea>
+            <td align=center>
+              <button class=ButOrange onclick='_$("immediate").value=""' title="Clear the immediate window">Clear</button>
+              <button class=ButRed onclick=FreeRAM() title="Clear all the variables and give back all the RAM available">Clear RAM</button>
+              <br>
+              <br>Copyright 2021 ciccioCB</table>
+    </div>
+  </div>
+  <div id=toast>mgs</div>
+  <div class=modal id=myModal>
+    <div class=modal-content id=myWin><span class=close>&times;&nbsp;&nbsp;</span>
+      <header>
+        <h2 class=headerGreen id=titleOpen style=cursor:move>&nbsp;FILE OPEN</h2>
+        <h2 class=headerRed id=titleSave style=cursor:move>&nbsp;FILE SAVE</h2></header>
+      <br>
+      <table>
+        <tr align=center>
+          <td>DIRECTORY
+            <td>FILE
+              <tr>
+                <td>
+                  <select id=Directories onchange=DirectoriesClick(event) onclick=DirectoriesClick(event) size=10 style=width:200px></select>
+                  <td>
+                    <select id=FilesList onchange=FilesListClick(event) onclick=FilesListClick(event) size=10 style=width:200px ondblclick=FilesListDoubleClick()></select>
+      </table>File Name:
+      <input id=file_name_tmp size=51>
+      <br>
+      <table>
+        <td>
+          <button class=ButYellow onclick=delFile() id=deletebut>Delete</button>
+          <td>
+            <button class=ButGreen onclick='addTex("open")' id=openbut style=margin-left:160px>Open</button>
+            <td>
+              <button class=ButRed onclick='addTex("save")' id=savebut style=margin-left:160px>Save</button>
+              <td>
+                <button class=ButOrange onclick=fileCancel() style=margin-left:30px>Cancel</button>
+      </table>
+    </div>
+  </div>
+  <script>
+    function _$(e) {
+      return document.getElementById(e)
+    }
+    var load_pending = !1,
+      flist = _$("FilesList"),
+      dlist = _$("Directories"),
+      fname_tmp = _$("file_name_tmp"),
+      log = _$("log");
+    log_changed = !1;
+    var modal = _$("myModal"),
+      myWin = _$("myWin"),
+      span = document.getElementsByClassName("close")[0];
+    span.onclick = function() {
+      modal.style.display = "none"
+    };
+    var isDown = !(window.onclick = function(e) {
+      e.target == modal && (modal.style.display = "none")
+    });
+
+    function fileCancel() {
+      modal.style.display = "none"
+    }
+
+    function getSaveWindow() {
+      cmdDir(), _$("openbut")
+        .style.display = "none", _$("titleOpen")
+        .style.display = "none", _$("savebut")
+        .style.display = "block", _$("titleSave")
+        .style.display = "block", modal.style.display = "block"
+    }
+
+    function getOpenWindow() {
+      cmdDir(), _$("openbut")
+        .style.display = "block", _$("titleOpen")
+        .style.display = "block", _$("savebut")
+        .style.display = "none", _$("titleSave")
+        .style.display = "none", modal.style.display = "block"
+    }
+
+    function addTex(e) {
+      "none" == _$("file_editor_div")
+        .style.display ? _$("file_name")
+        .value = fname_tmp.value : _$("file_name_editor")
+        .value = fname_tmp.value, 
+        modal.style.display = "none", 
+        "open" == e ? cmdOpen() : cmdSave()
+    }
+
+    function delFile() {
+      var e = fname_tmp.value;
+      "" != e && 1 == confirm("You requested to delete the file " + e + ".\nAre you sure?") && (connection.send("cmd:del" + e), cmdDir())
+    }
+
+    function Toast(e) {
+      var t = _$("toast");
+      t.innerHTML = e, t.className = "show", setTimeout(function() {
+        t.className = t.className.replace("show", "")
+      }, 3e3)
+    }
+
+    function DirectoriesClick(e) {
+      for (; 0 < flist.options.length;) flist.remove(0);
+      var t = new Array,
+        n = dlist.value;
+      for (o = 0; o < dirfiles.length; o++) "/" == n ? "/" == dirfiles[o].charAt(0) && -1 == dirfiles[o].indexOf("/", 1) && t.push(dirfiles[o].substr(1)) : dirfiles[o].substr(0, n.length) == n && t.push(dirfiles[o].substr(n.length + 1));
+      if (0 < t.length)
+        for (var o = 0; o < t.length; o++) flist.add(new Option(t[o], t[o]));
+      "undefined" != typeof Storage && null != localStorage.getItem("esp_default_file") && (flist.value = localStorage.getItem("esp_default_file"), FilesListClick())
+    }
+
+    function FilesListDoubleClick(e) {
+      FilesListClick(e), "none" != _$("openbut")
+        .style.display && addTex("open")
+    }
+
+    function FilesListClick(e) {
+      "/" != dlist.value ? fname_tmp.value = dlist.value + "/" + flist.value : fname_tmp.value = "/" + flist.value
+    }
+
+    function ConnectWebSocket() {
+      get_local_storage(), "undefined" != typeof connection && (connection.onclose = function() {}, connection.close()), setTimeout(function() {
+        connect()
+      }, 500)
+    }
+
+    function connect() {
+      port = location.port, "" != port && 0 != port ? port = ":" + port : port = "", 
+      connection = new WebSocket("ws://" + location.hostname + port + "/ws", "Editor"), 
+      connection.onopen = function() {
+        _$("status")
+          .style.fill = "green", 
+          connection.send("cmd:getver"), connection.send("cmd:gethelp"), 
+          connection.onclose = function() {
+            _$("status")
+              .style.fill = "red"
+          }, connection.onerror = function(e) {
+            _$("status")
+              .style.fill = "ff9900"
+          }, connection.onmessage = function(e) {
+            var t = e.data;
+            if (connection.send("$"), "INIT:" == t.substr(0, 5)) return buff = t.substr(11), filesize = Number(t.substr(5, 6)), connection.send("open:more"), void editAreaLoader.execCommand("code", "set_progress_bar", 100 * buff.length / filesize);
+            if ("MORE:" == t.substr(0, 5)) return buff += t.substr(5), connection.send("open:more"), void editAreaLoader.execCommand("code", "set_progress_bar", 100 * buff.length / filesize);
+            if ("DONE:" == t.substr(0, 5)) return connection.send("open:done"), editAreaLoader.setValue("code", buff), editAreaLoader.setSelectionRange("code", 0, 0), editAreaLoader.execCommand("code", "set_progress_bar", 100), Toast("Code Opened in the Editor"), set_local_storage(), void(1 == load_pending && cmdLoad());
+            if ("FNOF:" == t.substr(0, 5)) return connection.send("open:done"), void setTimeout(function() {
+              alert("File Not Found")
+            }, 100);
+            if ("SAVE:GIVE" == t) return connection.send("save:more" + buff.substr(position, 512)), editAreaLoader.execCommand("code", "set_progress_bar", 100 * position / filesize), void(position += 512);
+            if ("SAVE:END" == t) return editAreaLoader.execCommand("code", "set_progress_bar", 100), Toast("Code Saved"), void(1 == load_pending && cmdLoad());
+            if ("SAVE:ERR" != t) {
+              if ("DIR:" == t.substr(0, 4)) {
+                for (t = t.substr(4), dirfiles = t.split("\n"), dirfiles.sort(); 0 < dlist.options.length;) dlist.remove(0);
+                var n = new Array;
+                for (i = 0; i < dirfiles.length; i++) n[i] = dirfiles[i].split("/");
+                var o = new Array;
+                for (i = 0; i < n.length; i++) "" == n[i][0] ? void 0 !== n[i][1] && (void 0 !== n[i][2] ? o.push("/" + n[i][1]) : o.push("/")) : void 0 !== n[i][0] && (void 0 !== n[i][1] ? o.push(n[i][0]) : o.push(""));
+                if (uniqueArray = o.filter(function(e, t, n) {
+                    return n.indexOf(e) == t
+                  }), uniqueArray = uniqueArray.sort(), 0 < uniqueArray.length)
+                  for (var i = 0; i < uniqueArray.length; i++) dlist.add(new Option(uniqueArray[i], uniqueArray[i]));
+                return dlist.value = "/", "undefined" != typeof Storage && null != localStorage.getItem("esp_default_dir") && (dlist.value = localStorage.getItem("esp_default_dir")), void DirectoriesClick(this)
+              }
+              if (t.startsWith("CURLINE:")) {
+                var l = t.split(",");
+                return editAreaLoader.execCommand("code", "go_to_line", l[0].substr(8)), editAreaLoader.hide("code"), editAreaLoader.show("code"), void(1 < l.length && (log.value += "\n" + l[1], log_changed = !0))
+              }
+              if (t.startsWith("GETVAR:")) {
+                l = t.substr(7)
+                  .split("_^-");
+                return _$("var1_value")
+                  .value = l[0], void(_$("var2_value")
+                    .value = l[1])
+              }
+              if (t.startsWith("VERSION:")) _$("version")
+                .innerHTML = t.substr(8);
+              else {
+                if (!t.startsWith("HELP_URL:")) return t.startsWith("LOG:") ? 
+                (t = t.substr(4), log.value += "\n" + t, void(log_changed = !0)) : void(1 != _$("stop_log")
+                  .checked && (log.value += "\n" + t, log_changed = !0));
+                editAreaLoader.execCommand("code", "set_help_url", t.substr(9))
+              }
+            } else setTimeout(function() {
+              alert("File Not saved!")
+            }, 100)
+          }
+      }
+    }
+
+    function cmdLoad(e) {
+      var t = _$("file_name");
+      connection.send("load:" + t.value), load_pending = !1
+    }
+
+    function cmdNew(e) {
+      "none" == _$("file_editor_div")
+        .style.display ? _$("file_name")
+        .value = "/newfile.bas" : _$("file_name_editor")
+        .value = "/newfile.html"
+    }
+
+    function cmdOpen(e) {
+      var t;
+      load_pending = "none" == _$("file_editor_div")
+        .style.display ? (t = _$("file_name"), !0) : (t = _$("file_name_editor"), !1), 
+        connection.send("open:start" + t.value)
+    }
+
+    function cmdSave(e) {
+      var t;
+      if (buff = editAreaLoader.getValue("code"), 
+            0 == buff.endsWith("\n") && (buff += "\n"), 
+            load_pending = "none" == _$("file_editor_div").style.display ? 
+            (t = _$("file_name"), !0) : (t = _$("file_name_editor"), !1), 
+            filesize = buff.length, 
+            position = 0, 31 < t.value.length) 
+            return alert("The filename " + t.value + " is too long!\n It must be less than 31 characters including the path."), 
+            void(load_pending = !1);
+      "" != t.value && connection.send("save:start" + t.value), 
+      set_local_storage()
+    }
+
+    function cmdClick(e) {
+      connection.send("cmd:" + e.id)
+    }
+
+    function cmdRun() {
+      for (var e = editAreaLoader.getBreakpoints("code"), t = 0; t < e.length; t++) e[t] = ("00000" + e[t])
+        .substr(-5);
+      connection.send("cmd:run " + e)
+    }
+
+    function objChange(e) {
+      connection.send("change:" + e.id)
+    }
+
+    function cmdDir() {
+      connection.send("cmd:dir")
+    }
+
+    function cmdVarPressReturn(e) {
+      13 == e.keyCode && (cmdGetVars(), e.preventDefault && e.preventDefault())
+    }
+
+    function cmdGetVars() {
+      connection.send("cmd:getvars " + _$("var1_name")
+        .value + "_^-" + _$("var2_name")
+        .value)
+    }
+
+    function onImmediateChange(e) {
+      if (13 == e.keyCode || 10 == e.keyCode) {
+        var t = _$("immediate")
+          .value.substr(0, _$("immediate")
+            .selectionStart)
+          .split("\n")
+          .length;
+        connection.send("cmd:immediate " + _$("immediate")
+          .value.split("\n")[t - 1] + "   ")
+      }
+    }
+
+    function FreeRAM() {
+      connection.send("cmd:clr")
+    }
+
+    function toggleAdvanced() {
+      var e = _$("file_editor_div");
+      e.style.display = "none" == e.style.display ? "" : "none", "" == _$("file_name")
+        .value && (_$("file_name")
+          .value = _$("file_name_editor")
+          .value), "" == _$("file_name_editor")
+        .value && (_$("file_name_editor")
+          .value = _$("file_name")
+          .value), get_local_storage(), editAreaLoader.setSelectionRange("code", 0, 0)
+    }
+
+    function get_local_storage() {
+      "undefined" != typeof Storage && (null != localStorage.getItem("esp_file_name") && (_$("file_name").value = localStorage.getItem("esp_file_name")), 
+        null != localStorage.getItem("esp_file_name_editor") && (_$("file_name_editor").value = localStorage.getItem("esp_file_name_editor")), 
+        null != localStorage.getItem("esp_edit_area") && (1 == _$("advanced")
+        .checked ? editAreaLoader.setValue("code", localStorage.getItem("esp_edit_area_advanced")) : editAreaLoader.setValue("code", localStorage.getItem("esp_edit_area"))))
+    }
+
+    function set_local_storage() {
+      "undefined" != typeof Storage && (localStorage.setItem("esp_file_name", _
+      $("file_name").value), 
+      localStorage.setItem("esp_file_name_editor", _$("file_name_editor").value), 
+      1 == _$("advanced").checked ? localStorage.setItem("esp_edit_area_advanced", editAreaLoader.getValue("code")) : localStorage.setItem("esp_edit_area", editAreaLoader.getValue("code")), 
+      localStorage.setItem("esp_advanced", 
+      _$("advanced").checked), 
+      localStorage.setItem("esp_default_dir", dlist.value), 
+      localStorage.setItem("esp_default_file", flist.value))
+    }
+    myWin.onmousedown = function(e) {
+      e.target.id.startsWith("title") && (isDown = !0, offsetX = myWin.offsetLeft - e.clientX, offsetY = myWin.offsetTop - e.clientY)
+    }, myWin.onmouseup = function(e) {
+      isDown = !1
+    }, myWin.onmousemove = function(e) {
+      isDown && (myWin.style.position = "absolute", myWin.style.left = e.clientX + offsetX + "px", myWin.style.top = e.clientY + offsetY + "px", e.preventDefault())
+    }, setInterval(function() {
+      log_changed && (log.scrollTop = log.scrollHeight, log_changed = !1)
+    }, 100)
+
+  </script>
