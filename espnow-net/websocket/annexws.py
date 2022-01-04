@@ -1,12 +1,12 @@
-#!/usr/bin/python
+#!/usr/bin/python -u
 import sys
+import os
 import asyncio
 import websockets
 import time
 import urllib.request
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
-
 
 esps={}
 allIsRunning = False
