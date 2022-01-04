@@ -221,6 +221,8 @@ async def interact():
                 if cmd in 'rq':
                     instr = cmd
                     break
+                if cmd.startswith('?'):
+                    cmd = cmd.replace("?", "wlog ")
                 sendCmdAll(f"cmd:immediate {cmd}", True)
         if instr.startswith('?'):
             sendCmdAll(f"cmd:immediate wlog {instr[1:]}", True)

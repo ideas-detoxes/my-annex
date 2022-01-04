@@ -4,6 +4,7 @@ wlog "EspNow init:";x
 WIFI.APMODE "MESH", "abrakadabralksd89usadn,msc8u9usd"
 
 iplast=val(word$(word$(ip$, 1), 4, "."))
+pause iplast
 myname$="Node_"+str$(iplast, "%03.0f")
 rcvwptr=0
 rcvrptr=0
@@ -23,10 +24,26 @@ lastmsgtime=0
 
 peers$=""
 
-sendcycle=333
+word.setparam peers$, myname$, "0"+mac$
+
+routingbroadcastindex = 1
+routingbroadcastitem$=""
+sendcycle=1000
 onEspNowError status
 onEspNowMsg message 
 timer0 sendcycle, sendtest
+
+topology$=""
+word.setparam topology$, "Node_110", "Node_175"
+word.setparam topology$, "Node_175", "Node_110|Node_242"
+word.setparam topology$, "Node_242", "Node_175|Node_252"
+word.setparam topology$, "Node_252", "Node_242"
+mypeers$ = word.getparam$(topology$, myname$)
+wlog "T:" + topology$
+wlog "MP:" +  mypeers$
+
+
+
 
 do while 1
   if rcvrptr<>rcvwptr then
@@ -48,7 +65,7 @@ sub getSerial pkt$, serial$
     serial$ = word$(pkt$, 2, "|")
 end sub
 sub getCommand pkt$, pcommand$
-    pcommand$ = word$(pkt$, 3, "|")
+    pcommand$ = ucase$(word$(pkt$, 3, "|"))
 end sub 
 sub getFrom pkt$, pfrom$
     pfrom$ = word$(pkt$, 4, "|")
@@ -133,23 +150,72 @@ status:
 
 sendtest:
     stpkt$=""
-    joinpacket stpkt$, "X", "RM", myname$, "Node2", "X", "x"
-    'wlog "Sending test messge:";stpkt$
-    sendpacket stpkt$, 1
-    'sub joinpacket(pkt$, mac$, command$, from$, to$, route$, data$)
+    routingbroadcastitem$ = word$(peers$, routingbroadcastindex, chr$(10))
+    if len(routingbroadcastitem$) > 0 then
+        joinpacket stpkt$, "X", "RE", myname$, "ALL", routingbroadcastitem$, routingbroadcastitem$
+        'sub joinpacket(pkt$, mac$, command$, from$, to$, route$, data$)
+        sendpacket stpkt$, 1
+'        if myname$ = "Node_175" or myname$ = "Node_110"then
+'            wlog "Sending test messge:";stpkt$
+'        end if
+    end if
+    routingbroadcastindex = routingbroadcastindex + 1
+    if routingbroadcastindex > word.count(peers$, chr$(10)) then
+        routingbroadcastindex = 1
+    end if
 return
 
 sub process msg$
 local tmp
-local name$
+local mypeer_entry$
+local mypeer_name$
+local mypeer_mac$
+local gotpeer_entry$
+local gotpeer_name$
+local gotpeer_mac$
+local fromname$
 local pmac$
+local cmd$
+local pdata$
+local ser$
+local gothop, myhop
     msgcnt=msgcnt+1
-    wlog "Received", msg$, rcvrptr, rcvwptr, msgcnt, millis-lastmsgtime
+'    wlog "Received", msg$, rcvrptr, rcvwptr, msgcnt, millis-lastmsgtime
     lastmsgtime = millis
-    getFrom msg$, name$
+    getFrom msg$, fromname$
     getMac msg$, pmac$
-    if word.getparam$(peers$, name$) = "" then
-        word.setparam peers$, name$, "0"+pmac$
+    if myname$ = "Node_110" then 
+        wlog "mypeers:" + mypeers$ + " from:" + fromname$
+    end if
+    if word.find(mypeers$, fromname$, "|") > 0 then
+        if word.getparam$(peers$, fromname$) = "" then
+            word.setparam peers$, fromname$, "0"+pmac$
+        end if
+        getCommand msg$, cmd$
+        getData msg$, gotpeer_entry$
+        getSerial msg$, ser$
+        select case cmd$
+            case "RE"   ' broadcased RoutingEntry
+                if myname$ = "Node_110" then
+                    wlog "RoutingEntry received from:" + fromname$ + "(" + pmac$ + ") :" + gotpeer_entry$ + " >> " + ser$ + " " + str$(ramfree)
+                end if
+                gotpeer_name$ = word$(gotpeer_entry$, 1, "=")
+                gotpeer_mac$ = word$(gotpeer_entry$, 2, "=")
+                mypeer_mac$ = word.getparam$(peers$, gotpeer_name$)
+                mypeer_name$ = gotpeer_name$
+                if myname$ = "Node_110" then
+                    wlog "MPE " + mypeer_name$ + "=" + mypeer_mac$ + "  GPE " + gotpeer_name$ + "=" + gotpeer_mac$
+                end if
+                gothop = val(left$(gotpeer_mac$, 1))
+                if mypeer_mac$ = "" then
+                    word.setparam peers$, gotpeer_name$, str$(gothop+1)+pmac$
+                else
+                    myhop = val(left$(mypeer_mac$, 1))
+                    if gothop < myhop then
+                        word.setparam peers$, gotpeer_name$, str$(gothop+1)+pmac$
+                    end if 
+                end if
+        end select
     end if
 end sub 
 
