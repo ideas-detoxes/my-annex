@@ -13,27 +13,37 @@ import select
 import tty
 import termios
 
-console_old_settings=None
-class NonBlockingConsole(object):
+import sys
+import functools
+import asyncio as aio
 
-    def __enter__(self):
-        global console_old_settings
-        console_old_settings = termios.tcgetattr(sys.stdin)
-        tty.setcbreak(sys.stdin.fileno())
-        return self
+class Prompt:
+    def __init__(self, loop=None):
+        self.loop = loop or aio.get_event_loop()
+        self.q = aio.Queue()
+        self.loop.add_reader(sys.stdin, self.got_input)
 
-    def __exit__(self, type, value, traceback):
-        global console_old_settings
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, console_old_settings)
+    def got_input(self):
+        aio.ensure_future(self.q.put(sys.stdin.readline()), loop=self.loop)
+
+    async def __call__(self, msg, end='\n', flush=False):
+        print(msg, end=end, flush=flush)
+        return (await self.q.get()).rstrip('\n')
+
+prompt = Prompt()
+raw_input = functools.partial(prompt, end='', flush=True)
+
+async def input_test_main():
+    # wait for user to press enter
+    await prompt("press enter to continue")
+
+    # simulate raw_input
+    print(await raw_input('enter something:'))
 
 
-    def get_data(self):
-        if select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], []):
-            return sys.stdin.read(1)
-        return False
-        
 
 
+logprint = True
 esps={}
 allIsRunning = False
 verifyError = False
@@ -144,7 +154,8 @@ async def printLog(ip):
             await websocket.send("$")
             resp = resp.replace("LOG:", "")
             resp = resp.replace("\n", f"\n[{ip}] ")
-            print(f"[{ip}] {resp}")
+            if logprint:
+                print(f"[{ip}] {resp}")
 
 async def loadAndRunWithLog(ip):
     global allIsRunning
@@ -167,7 +178,7 @@ def loadAndRunWithLogAll():
     for e in esps:
         taskcnt += 1
         loop.create_task(loadAndRunWithLog(e))
-    loop.create_task(kbd())
+    loop.create_task(interact())
     loop.run_forever()
 
 
@@ -196,37 +207,38 @@ def sendCmdAll(cmd, log=False):
             loop.run_until_complete(newkiller(tmp))
 
 
-async def kbd():
+async def interact():
     global allIsRunning
-    global console_old_settings
     global loop
-    with NonBlockingConsole() as nbc:
-        while True:
-            await asyncio.sleep(0.1)
-            ch = nbc.get_data()
-            if ch == '?':
-                print("? - Help\np - Pause\nq - Quit\nr - Run(cont from pause)")
-            elif ch == 'q':
-                sendCmdAll("cmd:stop", True)
-                await asyncio.sleep(1)
-                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, console_old_settings)
-                allIsRunning = False
-                loop.stop()
-                for task in asyncio.Task.all_tasks():
-                    try:
-                        task.cancel()
-                    except:
-                        pass
-                return
-            elif ch == 'p':
+    global logprint
+    while True:
+        instr = await raw_input('')
+        if instr.startswith('p'):
+            while True:
                 sendCmdAll("cmd:pause", True)
                 await asyncio.sleep(0.5)
-                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, console_old_settings)
-                cmd=input("Enter command: ")
-                console_old_settings = termios.tcgetattr(sys.stdin)
+                cmd = await raw_input("Enter command ('q'uit, 'r'un, '?'wlog): ")
+                if cmd in 'rq':
+                    instr = cmd
+                    break
                 sendCmdAll(f"cmd:immediate {cmd}", True)
-            elif ch == 'r':
-                sendCmdAll("cmd:run", True)
+        if instr.startswith('?'):
+            sendCmdAll(f"cmd:immediate wlog {instr[1:]}", True)
+        if instr.startswith('l'):
+            logprint = not logprint
+        if instr.startswith('q'):
+            sendCmdAll("cmd:stop", True)
+            await asyncio.sleep(1)
+            allIsRunning = False
+            loop.stop()
+            for task in asyncio.Task.all_tasks():
+                try:
+                    task.cancel()
+                except:
+                    pass
+            return
+        if instr.startswith('r'):
+            sendCmdAll("cmd:run", True)
                 
 if __name__ == "__main__":
     if len(sys.argv) == 2:

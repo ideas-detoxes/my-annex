@@ -3,7 +3,8 @@ x=espnow.begin
 wlog "EspNow init:";x
 WIFI.APMODE "MESH", "abrakadabralksd89usadn,msc8u9usd"
 
-myname$="Node_"+word$(word$(ip$, 1), 4, ".")
+iplast=val(word$(word$(ip$, 1), 4, "."))
+myname$="Node_"+str$(iplast, "%03.0f")
 rcvwptr=0
 rcvrptr=0
 sndwptr=0
@@ -17,6 +18,9 @@ routes$=""
 serial=1
 msgcnt=0
 lastmsgtime=0
+' nodename=hopcount:nodemac
+' hopcount: 0-9 0 means direct peer
+
 peers$=""
 
 sendcycle=333
@@ -145,7 +149,7 @@ local pmac$
     getFrom msg$, name$
     getMac msg$, pmac$
     if word.getparam$(peers$, name$) = "" then
-        word.setparam peers$, name$, pmac$
+        word.setparam peers$, name$, "0"+pmac$
     end if
 end sub 
 
