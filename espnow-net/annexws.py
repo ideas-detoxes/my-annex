@@ -57,7 +57,7 @@ async def check(ip):
     global esps
     uri = f"ws://{ip}/ws"
     try:
-        async with websockets.connect(uri, open_timeout=0.5, subprotocols=["Editor"] ) as websocket:
+        async with websockets.connect(uri, open_timeout=1, subprotocols=["Editor"] ) as websocket:
             esps[ip]=True
     except:
         pass
@@ -147,15 +147,20 @@ def uploadFileToAll():
 async def printLog(ip):
     global allIsRunning
     uri = f"ws://{ip}/ws"
-    async with websockets.connect(uri, open_timeout=3, subprotocols=["Editor"] ) as websocket:
-        resp = await websocket.recv()
-        while allIsRunning:
-            resp = await websocket.recv()
-            await websocket.send("$")
-            resp = resp.replace("LOG:", "")
-            resp = resp.replace("\n", f"\n[{ip}] ")
-            if logprint:
-                print(f"[{ip}] {resp}")
+    while True:
+        try:
+            async with websockets.connect(uri, open_timeout=3, subprotocols=["Editor"] ) as websocket:
+                resp = await websocket.recv()
+                while allIsRunning:
+                    resp = await websocket.recv()
+                    await websocket.send("$")
+                    resp = resp.replace("LOG:", "")
+                    resp = resp.replace("\n", f"\n[{ip}] ")
+                    if logprint:
+                        print(f"[{ip}] {resp}")
+        except websockets.exceptions.ConnectionClosed:
+            print(f"====================== {ip} closed, reopen")
+            pass
 
 async def loadAndRunWithLog(ip):
     global allIsRunning

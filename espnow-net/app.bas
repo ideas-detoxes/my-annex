@@ -3,6 +3,8 @@ x=espnow.begin
 wlog "EspNow init:";x
 WIFI.APMODE "MESH", "abrakadabralksd89usadn,msc8u9usd"
 
+CRLF$=chr$(10)+chr$(13)
+
 iplast=val(word$(word$(ip$, 1), 4, "."))
 pause iplast
 myname$="Node_"+str$(iplast, "%03.0f")
@@ -46,17 +48,51 @@ wlog "MP:" +  mypeers$
 
 
 do while 1
-  if rcvrptr<>rcvwptr then
-    msg$=rq$(rcvrptr)
-    rcvrptr=(rcvrptr+1) and mask
-    if instr(cache$, left$(msg$, 8)) then 
-      wlog "   exist in cache"
-    else  
-      addtoCache msg$
-      process msg$
+    if rcvrptr<>rcvwptr then
+        msg$=rq$(rcvrptr)
+        rcvrptr=(rcvrptr+1) and mask
+        if instr(cache$, left$(msg$, 8)) then 
+            wlog "   exist in cache"
+        else  
+            addtoCache msg$
+            processRcvMsg msg$
+        end if  
     end if  
-  end if  
+    if sndrptr<>sndwptr then
+        msg$=sq$(sndrptr)
+        sendpacket msg$
+        sndrptr=(sndrptr+1) and mask
+    end if
 loop
+
+sub delMac dmpmac$, dmpkt$
+    dmpmac$=word$(dmpkt$, 1, "|")
+    dmpkt$=word.delete$(dmpkt$, 1, "|")
+end sub 
+
+sub queuepacket(sppkt$, spbroadcast)
+local spmac$
+local message_tmp$
+    addToCache sppkt$
+    delMac spmac$, sppkt$
+    if spbroadcast = 1 then
+        spmac$="ff:ff:ff:ff:ff:ff"
+    end if
+    message_tmp$ = spmac$ + "|" + sppkt$
+'wlog "QP:" + sppkt$ + " --> " + message_tmp$
+    sq$(sndwptr) = message_tmp$
+    sndwptr=(sndwptr+1) and mask
+end sub
+
+sub sendpacket(sppkt$)
+local spmac$
+    delMac spmac$, sppkt$
+'wlog "sendpacket:";spmac$, sppkt$
+    espnow.add_peer(spmac$)
+    espnow.write(sppkt$, spmac$)
+    espnow.del_peer(spmac$)
+end sub
+
 
 sub getMac pkt$, pmac$
     pmac$ = word$(pkt$, 1, "|")
@@ -108,10 +144,6 @@ sub joinpacket(jppkt$, jpmac$, jpcommand$, jpfrom$, jpto$, jproute$, jpdata$)
     'wlog "JoinPacket:";jppkt$
 end sub
 
-sub delmac dmpmac$, dmpkt$
-    dmpmac$=word$(dmpkt$, 1, "|")
-    dmpkt$=word.delete$(dmpkt$, 1, "|")
-end sub 
 
 sub addToCache(acpkt$)
 local acmac$, acserial$, accommand$, acfrom$, acto$, acroute$, acdata$
@@ -120,19 +152,6 @@ local acmac$, acserial$, accommand$, acfrom$, acto$, acroute$, acdata$
     cache$=left$(cache$+acserial$+accommand$+" ", 250)
 end sub 
 
-sub sendpacket(sppkt$, spbroadcast)
-local spmac$
-    addToCache sppkt$
-    spmac$=""
-    delmac spmac$, sppkt$
-    if spbroadcast = 1 then
-        spmac$="ff:ff:ff:ff:ff:ff"
-    end if
-    'wlog "sendpacket:";spmac$, sppkt$
-    espnow.add_peer(spmac$)
-    espnow.write(sppkt$, spmac$)
-    espnow.del_peer(spmac$)
-end sub
 
 
 message:
@@ -154,7 +173,7 @@ sendtest:
     if len(routingbroadcastitem$) > 0 then
         joinpacket stpkt$, "X", "RE", myname$, "ALL", routingbroadcastitem$, routingbroadcastitem$
         'sub joinpacket(pkt$, mac$, command$, from$, to$, route$, data$)
-        sendpacket stpkt$, 1
+        queuepacket stpkt$, 1
 '        if myname$ = "Node_175" or myname$ = "Node_110"then
 '            wlog "Sending test messge:";stpkt$
 '        end if
@@ -165,7 +184,31 @@ sendtest:
     end if
 return
 
-sub process msg$
+sub checkTopology(pfrom$, result)
+    result = (word.find(mypeers$, fromname$, "|") > 0)
+end sub 
+
+sub processRcvMsg(sg$)
+local topologyValid
+local fromname$
+local pmac$
+local cmd$
+    getFrom msg$, fromname$
+    checkTopology fromname$, topologyValid
+    if topologyValid then
+        getMac msg$, pmac$
+        getCommand msg$, cmd$
+        if word.getparam$(peers$, fromname$) = "" then
+            word.setparam peers$, fromname$, "0"+pmac$
+        end if
+        select case cmd$
+            case "RE"   ' broadcased RoutingEntry
+                processRE msg$
+        end select
+    end if
+end sub 
+
+sub processRE(msg$)
 local tmp
 local mypeer_entry$
 local mypeer_name$
@@ -173,49 +216,31 @@ local mypeer_mac$
 local gotpeer_entry$
 local gotpeer_name$
 local gotpeer_mac$
-local fromname$
-local pmac$
-local cmd$
 local pdata$
 local ser$
 local gothop, myhop
-    msgcnt=msgcnt+1
-'    wlog "Received", msg$, rcvrptr, rcvwptr, msgcnt, millis-lastmsgtime
-    lastmsgtime = millis
+local fromname$
+local pmac$
     getFrom msg$, fromname$
     getMac msg$, pmac$
-    if myname$ = "Node_110" then 
-        wlog "mypeers:" + mypeers$ + " from:" + fromname$
+    getData msg$, gotpeer_entry$
+    getSerial msg$, ser$
+    if myname$ = "Node_110" then
+        'wlog "RoutingEntry received from:" + fromname$ + "(" + pmac$ + ") :" + gotpeer_entry$ + " >> " + ser$ + " " + str$(ramfree)
+        wlog "Peers:"
+        wlog peers$
     end if
-    if word.find(mypeers$, fromname$, "|") > 0 then
-        if word.getparam$(peers$, fromname$) = "" then
-            word.setparam peers$, fromname$, "0"+pmac$
-        end if
-        getCommand msg$, cmd$
-        getData msg$, gotpeer_entry$
-        getSerial msg$, ser$
-        select case cmd$
-            case "RE"   ' broadcased RoutingEntry
-                if myname$ = "Node_110" then
-                    wlog "RoutingEntry received from:" + fromname$ + "(" + pmac$ + ") :" + gotpeer_entry$ + " >> " + ser$ + " " + str$(ramfree)
-                end if
-                gotpeer_name$ = word$(gotpeer_entry$, 1, "=")
-                gotpeer_mac$ = word$(gotpeer_entry$, 2, "=")
-                mypeer_mac$ = word.getparam$(peers$, gotpeer_name$)
-                mypeer_name$ = gotpeer_name$
-                if myname$ = "Node_110" then
-                    wlog "MPE " + mypeer_name$ + "=" + mypeer_mac$ + "  GPE " + gotpeer_name$ + "=" + gotpeer_mac$
-                end if
-                gothop = val(left$(gotpeer_mac$, 1))
-                if mypeer_mac$ = "" then
-                    word.setparam peers$, gotpeer_name$, str$(gothop+1)+pmac$
-                else
-                    myhop = val(left$(mypeer_mac$, 1))
-                    if gothop < myhop then
-                        word.setparam peers$, gotpeer_name$, str$(gothop+1)+pmac$
-                    end if 
-                end if
-        end select
+    gotpeer_name$ = word$(gotpeer_entry$, 1, "=")
+    gotpeer_mac$ = word$(gotpeer_entry$, 2, "=")
+    mypeer_mac$ = word.getparam$(peers$, gotpeer_name$)
+    mypeer_name$ = gotpeer_name$
+    gothop = val(left$(gotpeer_mac$, 1))
+    if mypeer_mac$ = "" then
+        word.setparam peers$, gotpeer_name$, str$(gothop+1)+pmac$
+    else
+        myhop = val(left$(mypeer_mac$, 1))
+        if gothop < myhop then
+            word.setparam peers$, gotpeer_name$, str$(gothop+1)+pmac$
+        end if 
     end if
-end sub 
-
+end sub
