@@ -3,6 +3,7 @@ x=espnow.begin
 wlog "EspNow init:";x
 WIFI.APMODE "MESH", "abrakadabralksd89usadn,msc8u9usd"
 
+global_dummy = 0
 CRLF$=chr$(10)+chr$(13)
 BROADCAST_MAC$="ff:ff:ff:ff:ff:ff"
 iplast=val(word$(word$(ip$, 1), 4, "."))
@@ -21,19 +22,18 @@ serial=1
 msgcnt=0
 lastmsgtime=0
 ' nodename=hopcount:nodemac
-' hopcount: 0-9 0 means direct peer
+' hopcount: 0-9 0 means myself and direct peers
 
+deadtimers$ = ""
 peers$=""
-
+oneSecondFlag = 1
+secondCounter = 0
 word.setparam peers$, myname$, "0"+mac$
 
-routingbroadcastindex = 1
-routingbroadcastitem$=""
-sendcycle=1000
+sendRoutesindex=1
 onEspNowError status
 onEspNowMsg message 
-timer0 sendcycle, sendRoutes
-timer1 3000, sendTest
+timer0 1000, oneSecondLbl
 
 topology$=""
 word.setparam topology$, "Node_110", "Node_175|Node_242"
@@ -41,29 +41,44 @@ word.setparam topology$, "Node_175", "Node_110|Node_252"
 word.setparam topology$, "Node_242", "Node_110|Node_252"
 word.setparam topology$, "Node_252", "Node_175|Node_242"
 mypeers$ = word.getparam$(topology$, myname$)
-wlog "T:" + topology$
-wlog "MP:" +  mypeers$
+logger "T:" + topology$
+logger "MP:" +  mypeers$
 
+mainloop global_dummy
+wait 
 
+sub mainloop(dummy)
+local cmd$
+    do while 1
+        do while rcvrptr<>rcvwptr 
+            msg$=rq$(rcvrptr)
+            rcvrptr=(rcvrptr+1) and mask
+            if instr(cache$, left$(msg$, 8)) then 
+                logger "   exist in cache"
+            else  
+                getCommand msg$, cmd$
+                if instr(cmd$, "-ACK") = 0 then
+                    addtoCache msg$
+                end if
+                processRcvMsg msg$
+            end if  
+        loop 
+        do while sndrptr<>sndwptr 
+            msg$=sq$(sndrptr)
+            transmitpacket msg$
+            sndrptr=(sndrptr+1) and mask
+        loop 
+        if oneSecondFlag = 1 then
+            oneSecondFlag = 0
+            oneSecond global_dummy
+        end if
+    loop
+end sub
 
-
-do while 1
-    do while rcvrptr<>rcvwptr 
-        msg$=rq$(rcvrptr)
-        rcvrptr=(rcvrptr+1) and mask
-        if instr(cache$, left$(msg$, 8)) then 
-            wlog "   exist in cache"
-        else  
-            addtoCache msg$
-            processRcvMsg msg$
-        end if  
-    loop 
-    do while sndrptr<>sndwptr 
-        msg$=sq$(sndrptr)
-        transmitpacket msg$
-        sndrptr=(sndrptr+1) and mask
-    loop 
-loop
+sub logger(txt$)
+    wlog txt$
+    print txt$
+end sub
 
 sub delMac dmpkt$, dmpmac$
     dmpmac$=word$(dmpkt$, 1, "|")
@@ -126,7 +141,7 @@ sub joinPacket(jppkt$, jpmac$, jpcommand$, jpfrom$, jpto$, jpdata$)
     jppkt$ = jppkt$ + "|" + jpfrom$
     jppkt$ = jppkt$ + "|" + jpto$
     jppkt$ = jppkt$ + "|" + jpdata$
-    'wlog "JoinPacket:";jppkt$
+    'logger "JoinPacket:";jppkt$
 end sub
 
 
@@ -142,7 +157,7 @@ end sub
 
 message:
   message_tmp$=ucase$(espnow.remote$)+"|"+espnow.read$
-  'wlog message_tmp$
+  'logger message_tmp$
   rq$(rcvwptr) = message_tmp$
   rcvwptr=(rcvwptr+1) and mask
   return
@@ -150,45 +165,107 @@ message:
 sub deletePeer(pmac$)  
 local cnt
 local i
-    wlog "peers before delete:"
-    wlog peers$
+local wc
     cnt = 1
     do while cnt > 0
         cnt = 0
-        for i = 1 to word.count(peers$, chr$(10))
-            if instr(word$(peers$, i, chr$(10)), pmac$) <> 0 then
-                cnt = cnt + 1
-                peers$ = word.delete$(peers$, i, chr$(10))
-                exit for
-            end if
-        next
+        wc = word.count(peers$, chr$(10))
+        if wc > 0
+            for i = 1 to wc
+                if instr(word$(peers$, i, chr$(10)), pmac$) <> 0 then
+                    if cnt = 0 then
+                        cnt = cnt + 1
+                        peers$ = word.delete$(peers$, i, chr$(10))
+                    end if
+                end if
+            next
+        end if
     loop
-    wlog "peers after delete:"
-    wlog peers$
 end sub
 
 status:
     espnow_error$ = ucase$(espnow.error$)
-    wlog  "TX error on "+ espnow_error$  ' wlog the error
-    print "TX error on "+ espnow_error$  ' wlog the error
-    deletePeer(espnow_error$)
+    logger  "TX error on "+ espnow_error$  ' logger the error
+    deletePeer "0"+espnow_error$
 return
 
-sendRoutes:
-    srpkt$=""
-    routingbroadcastitem$ = word$(peers$, routingbroadcastindex, chr$(10))
-    if len(routingbroadcastitem$) > 0 then
-        joinPacket srpkt$, BROADCAST_MAC$, "RE", myname$, "ALL", routingbroadcastitem$
+sub sendRoutes(dummy)
+local pkt$
+local item$
+    pkt$=""
+    item$ = word$(peers$, sendRoutesindex, chr$(10))
+    if len(item$) > 0 then
+        joinPacket pkt$, BROADCAST_MAC$, "RE", myname$, "ALL", item$
         'sub joinPacket(pkt$, mac$, command$, from$, to$, data$)
-        queuepacket srpkt$
+        queuepacket pkt$
 '        if myname$ = "Node_175" or myname$ = "Node_110"then
-'            wlog "Sending test messge:";srpkt$
+'            logger "Sending route update:";pkt$
 '        end if
     end if
-    routingbroadcastindex = routingbroadcastindex + 1
-    if routingbroadcastindex > word.count(peers$, chr$(10)) then
-        routingbroadcastindex = 1
+    sendRoutesindex = sendRoutesindex + 1
+    if sendRoutesindex > word.count(peers$, chr$(10)) then
+        sendRoutesindex = 1
     end if
+end sub
+
+sub oneSecond(dummy)
+local ts
+local age
+local i
+local item$
+local pmac$
+local its$
+    sendRoutes dummy
+    secondCounter = secondCounter + 1
+    if (secondCounter mod 3)  = 0 then
+        if myname$ = "Node_110" then
+            sendMessage "Node_252", str$(millis)
+        end if
+    end if
+    if (secondCounter mod 5)  = 0 then
+'        word.setparam deadtimers$, pmac$, str$(millis)
+        ts = millis
+        deletes$ = ""
+        wc = word.count(deadtimers$, chr$(10))
+        if wc > 0 then
+            if myname$ = "Node_110" then
+                logger "-----------5sec begin"
+                logger str$(ts)
+                logger "deadtimers:"
+                logger deadtimers$
+                logger "peers:"
+                logger peers$
+            end if
+            if myname$ = "Node_110" then
+                logger "---------processing"
+            end if
+            for i=1 to wc
+                item$ = word$(deadtimers$, i, chr$(10))
+                if len(item$) > 0 then
+                    pmac$ = word$(item$, 1, "=")
+                    its$ = word$(item$, 2, "=")
+                    age = ts - val(its$)
+                    if myname$ = "Node_110" then
+                        logger "...................." + item$ + " " + str$(len(item$)) + " " + pmac$ + " " + its$ + " " + str$(ts)  + " " + str$(age)
+                    end if
+                    if age > 5000 then
+                        deletePeer "0"+pmac$
+                    end if
+                end if
+            next 
+            if myname$ = "Node_110" then
+                logger "deadtimers:"
+                logger deadtimers$
+                logger "peers:"
+                logger peers$
+                logger "-----------5sec END"
+            end if
+        end if
+    end if
+end sub
+
+oneSecondLbl:
+    oneSecondFlag = 1
 return
 
 sub checkTopology(pfrom$, pcmd$, result)
@@ -208,27 +285,30 @@ local cmd$
 local sended$
     getFrom msg$, fromname$
     getCommand msg$, cmd$
+    getMac msg$, pmac$
     checkTopology fromname$, cmd$, topologyValid
     if topologyValid then
-        getMac msg$, pmac$
         if word.getparam$(peers$, fromname$) = "" then
             word.setparam peers$, fromname$, "0"+pmac$
         end if
+        word.setparam deadtimers$, pmac$, str$(millis)
         if cmd$ = "RE" then
             processRE msg$
         end if
-        if cmd$ = "MSG" or cmd$ = "ACK" then
+        if cmd$ = "MSG" or cmd$ = "MSG-ACK" then
             getTo msg$, toname$
             if toname$ <> myname$ then
                 forwardMessage msg$
             else
                 if cmd$ = "MSG" then
-'                    wlog "Message for me :" + msg$ 
+'                    logger "Message for me :" + msg$ 
                     sendAck msg$
                 end if
-                if cmd$ = "ACK" then
+                if cmd$ = "RE-ACK" then
+                end if
+                if cmd$ = "MSG-ACK" then
                     getData msg$, sended$
-                    wlog "ACK received   :" + msg$ + " RTT:" + str$(millis - val(sended$))
+                    logger "MSG-ACK received   :" + msg$ + " RTT:" + str$(millis - val(sended$))
                 end if
             end if
         end if
@@ -253,9 +333,10 @@ local pmac$
     getData msg$, gotpeer_entry$
     getSerial msg$, ser$
     if myname$ = "Node_110" then
-        'wlog "RoutingEntry received from:" + fromname$ + "(" + pmac$ + ") :" + gotpeer_entry$ + " >> " + ser$ + " " + str$(ramfree)
-'        wlog "Peers:"
-'        wlog peers$
+'        logger "RoutingEntry received:" + msg$
+        'logger "RoutingEntry received from:" + fromname$ + "(" + pmac$ + ") :" + gotpeer_entry$ + " >> " + ser$ + " " + str$(ramfree)
+'        logger "Peers:"
+'        logger peers$
     end if
     gotpeer_name$ = word$(gotpeer_entry$, 1, "=")
     gotpeer_mac$ = word$(gotpeer_entry$, 2, "=")
@@ -270,13 +351,9 @@ local pmac$
             word.setparam peers$, gotpeer_name$, str$(gothop+1)+pmac$
         end if 
     end if
+    sendAck msg$
 end sub
 
-sendTest:
-    if myname$ = "Node_110" then
-        sendMessage "Node_252", str$(millis)
-    end if
-return 
 
 sub sendMessage(pto$, pdata$)
 local stpkt$
@@ -291,12 +368,12 @@ local i
         end if
     next 
     if nexthop$ = "" then
-        wlog "No route to       : " + pto$
+        logger "No route to       : " + pto$
     else
         nexthop$ = mid$(nexthop$, 2)
         joinPacket stpkt$, nexthop$, "MSG", myname$, pto$, pdata$
         queuepacket stpkt$
-        wlog "Sended         :" + stpkt$ + " Via:" + via$
+        logger "Sended         :" + stpkt$ + " Via:" + via$
     end if
 end sub 
 
@@ -306,20 +383,20 @@ local nexthop$
 local tmp$
 local msgtmp$
     msgtmp$ = msg$
-'    wlog ">>"
-'    wlog "Forwarding:       " + msgtmp$
+'    logger ">>"
+'    logger "Forwarding:       " + msgtmp$
     getTo msg$, pto$
     nexthop$ = word.getparam$(peers$, pto$)
     if nexthop$ = "" then
-'        wlog "No route to      : " + pto$
+'        logger "No route to      : " + pto$
     else
         nexthop$ = mid$(nexthop$, 2)
         delMac msgtmp$, tmp$
         msgtmp$ = nexthop$ + "|" + msgtmp$
         queuepacket msgtmp$
-'        wlog "Forwarding      : " + msgtmp$ + " via: " + nexthop$
+'        logger "Forwarding      : " + msgtmp$ + " via: " + nexthop$
     end if
-'    wlog "<<"
+'    logger "<<"
 end sub
 
 sub sendAck(pmsg$)
@@ -329,17 +406,20 @@ local pto$
 local pfrom$
 local ackdata$
 local serial$
+local cmd$
     getFrom pmsg$, pfrom$
     getTo pmsg$, pto$
     getData pmsg$, ackdata$
+    getCommand pmsg$, cmd$
+    cmd$ = cmd$ + "-ACK"
     nexthop$ = word.getparam$(peers$, pfrom$)
     if nexthop$ = "" then
-'        wlog "ACK No route to:" + pfrom$
+'        logger "ACK No route to:" + pfrom$
     else
         getSerial pmsg$, serial$
         nexthop$ = mid$(nexthop$, 2)
-        joinPacket ackpkt$, nexthop$, "ACK", myname$, pfrom$, ackdata$
+        joinPacket ackpkt$, nexthop$, cmd$, myname$, pfrom$, ackdata$
         queuepacket ackpkt$
-'        wlog "ACK sended to  :"  + ackpkt$ 
+'        logger "ACK sended to  :"  + ackpkt$ 
     end if
 end sub 
