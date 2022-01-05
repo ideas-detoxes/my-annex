@@ -4,7 +4,7 @@ wlog "EspNow init:";x
 WIFI.APMODE "MESH", "abrakadabralksd89usadn,msc8u9usd"
 
 CRLF$=chr$(10)+chr$(13)
-
+BROADCAST_MAC$="ff:ff:ff:ff:ff:ff"
 iplast=val(word$(word$(ip$, 1), 4, "."))
 pause iplast
 myname$="Node_"+str$(iplast, "%03.0f")
@@ -33,7 +33,8 @@ routingbroadcastitem$=""
 sendcycle=1000
 onEspNowError status
 onEspNowMsg message 
-timer0 sendcycle, sendtest
+timer0 sendcycle, sendRoutes
+timer1 3000, sendTest
 
 topology$=""
 word.setparam topology$, "Node_110", "Node_175"
@@ -48,46 +49,40 @@ wlog "MP:" +  mypeers$
 
 
 do while 1
-    if rcvrptr<>rcvwptr then
+    do while rcvrptr<>rcvwptr 
         msg$=rq$(rcvrptr)
         rcvrptr=(rcvrptr+1) and mask
         if instr(cache$, left$(msg$, 8)) then 
             wlog "   exist in cache"
         else  
             addtoCache msg$
+            if instr(msg$, "Node_110|Node_252") then
+                wlog "RCV:" + msg$
+            end if
             processRcvMsg msg$
         end if  
-    end if  
-    if sndrptr<>sndwptr then
+    loop 
+    do while sndrptr<>sndwptr 
         msg$=sq$(sndrptr)
-        sendpacket msg$
+        transmitpacket msg$
         sndrptr=(sndrptr+1) and mask
-    end if
+    loop 
 loop
 
-sub delMac dmpmac$, dmpkt$
+sub delMac dmpkt$, dmpmac$
     dmpmac$=word$(dmpkt$, 1, "|")
     dmpkt$=word.delete$(dmpkt$, 1, "|")
 end sub 
 
-sub queuepacket(sppkt$, spbroadcast)
-local spmac$
-local message_tmp$
+sub queuepacket(sppkt$)
     addToCache sppkt$
-    delMac spmac$, sppkt$
-    if spbroadcast = 1 then
-        spmac$="ff:ff:ff:ff:ff:ff"
-    end if
-    message_tmp$ = spmac$ + "|" + sppkt$
-'wlog "QP:" + sppkt$ + " --> " + message_tmp$
-    sq$(sndwptr) = message_tmp$
+    sq$(sndwptr) = sppkt$
     sndwptr=(sndwptr+1) and mask
 end sub
 
-sub sendpacket(sppkt$)
+sub transmitpacket(sppkt$)
 local spmac$
-    delMac spmac$, sppkt$
-'wlog "sendpacket:";spmac$, sppkt$
+    delMac sppkt$, spmac$
     espnow.add_peer(spmac$)
     espnow.write(sppkt$, spmac$)
     espnow.del_peer(spmac$)
@@ -167,15 +162,15 @@ status:
   wlog "TX error on "+ espnow.error$  ' wlog the error
   return
 
-sendtest:
-    stpkt$=""
+sendRoutes:
+    srpkt$=""
     routingbroadcastitem$ = word$(peers$, routingbroadcastindex, chr$(10))
     if len(routingbroadcastitem$) > 0 then
-        joinpacket stpkt$, "X", "RE", myname$, "ALL", routingbroadcastitem$, routingbroadcastitem$
+        joinpacket srpkt$, BROADCAST_MAC$, "RE", myname$, "ALL", routingbroadcastitem$, routingbroadcastitem$
         'sub joinpacket(pkt$, mac$, command$, from$, to$, route$, data$)
-        queuepacket stpkt$, 1
+        queuepacket srpkt$
 '        if myname$ = "Node_175" or myname$ = "Node_110"then
-'            wlog "Sending test messge:";stpkt$
+'            wlog "Sending test messge:";srpkt$
 '        end if
     end if
     routingbroadcastindex = routingbroadcastindex + 1
@@ -184,26 +179,38 @@ sendtest:
     end if
 return
 
-sub checkTopology(pfrom$, result)
-    result = (word.find(mypeers$, fromname$, "|") > 0)
+sub checkTopology(pfrom$, pcmd$, result)
+    if pcmd$ = "RE" then
+        result = (word.find(mypeers$, fromname$, "|") > 0)
+    else
+        result = (1=1)
+    end if
 end sub 
 
 sub processRcvMsg(sg$)
 local topologyValid
 local fromname$
+local toname$
 local pmac$
 local cmd$
     getFrom msg$, fromname$
-    checkTopology fromname$, topologyValid
+    getCommand msg$, cmd$
+    checkTopology fromname$, cmd$, topologyValid
     if topologyValid then
         getMac msg$, pmac$
-        getCommand msg$, cmd$
         if word.getparam$(peers$, fromname$) = "" then
             word.setparam peers$, fromname$, "0"+pmac$
         end if
         select case cmd$
             case "RE"   ' broadcased RoutingEntry
                 processRE msg$
+            case "MSG"   ' generic message
+                getTo msg$, toname$
+                if toname$ = myname$ then
+                    wlog "Message for me: " + msg$
+                else
+                    forwardMessage msg$
+                end if
         end select
     end if
 end sub 
@@ -227,8 +234,8 @@ local pmac$
     getSerial msg$, ser$
     if myname$ = "Node_110" then
         'wlog "RoutingEntry received from:" + fromname$ + "(" + pmac$ + ") :" + gotpeer_entry$ + " >> " + ser$ + " " + str$(ramfree)
-        wlog "Peers:"
-        wlog peers$
+'        wlog "Peers:"
+'        wlog peers$
     end if
     gotpeer_name$ = word$(gotpeer_entry$, 1, "=")
     gotpeer_mac$ = word$(gotpeer_entry$, 2, "=")
@@ -243,4 +250,50 @@ local pmac$
             word.setparam peers$, gotpeer_name$, str$(gothop+1)+pmac$
         end if 
     end if
+end sub
+
+sendTest:
+    if myname$ = "Node_110" then
+        sendMessage "Node_252", "Hello from: " + myname$
+    end if
+return 
+
+sub sendMessage(pto$, pdata$)
+local stpkt$
+local stmac$
+local nexthop$
+local oldmac$
+    nexthop$ = word.getparam$(peers$, pto$)
+    if nexthop$ = "" then
+        wlog "No route to       : " + pto$
+    else
+        nexthop$ = mid$(nexthop$, 2)
+        joinpacket stpkt$, nexthop$, "MSG", myname$, pto$, "*", pdata$
+        queuepacket stpkt$
+        wlog "Sended to:" + pto$ + " [" + stpkt$ + "]"
+    end if
+end sub 
+
+sub forwardMessage(msg$)
+local pto$
+local nexthop$
+local tmp$
+local msgtmp$
+    msgtmp$ = msg$
+    wlog ">>"
+    wlog "Forwarding:         " + msgtmp$
+    wlog "Peers:"
+    wlog peers$
+    getTo msg$, pto$
+    nexthop$ = word.getparam$(peers$, pto$)
+    if nexthop$ = "" then
+        wlog "No route to      : " + pto$
+    else
+        nexthop$ = mid$(nexthop$, 2)
+        delMac msgtmp$, tmp$
+        msgtmp$ = nexthop$ + "|" + msgtmp$
+        queuepacket msgtmp$
+        wlog "Forwarding      : " + msgtmp$ + " via: " + nexthop$
+    end if
+    wlog "<<"
 end sub
